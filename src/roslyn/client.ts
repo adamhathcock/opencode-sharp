@@ -1,0 +1,92 @@
+import type { CodeAction, Range } from "../csharp/types";
+import { getRoslynCommand } from "./command";
+import { getDiagnostics } from "./diagnostics";
+import { DocumentStore } from "./documents";
+import { getInitializeParams } from "./initialize";
+import { handleServerRequest } from "./serverRequests";
+import { RpcConnection } from "./rpcConnection";
+
+export class RoslynLspClient {
+  private connection: RpcConnection | undefined;
+  private initialized: Promise<void> | undefined;
+  private documents = new DocumentStore((method, params) => this.notify(method, params));
+
+  constructor(private readonly root: string) {}
+
+  status() {
+    return {
+      root: this.root,
+      initialized: this.initialized !== undefined,
+      openDocuments: this.documents.size,
+      ...this.connection?.status()
+    };
+  }
+
+  async shutdown() {
+    await this.connection?.shutdown();
+    this.initialized = undefined;
+    this.documents.clear();
+  }
+
+  diagnostics(file: string) {
+    return getDiagnostics(this, file);
+  }
+
+  async codeActions(file: string, range: Range) {
+    const document = await this.syncDocument(file);
+    await this.waitForRoslynOperations(["Workspace", "LightBulb"]);
+    const response = await this.request("textDocument/codeAction", {
+      textDocument: { uri: document.uri },
+      range,
+      context: { diagnostics: [] }
+    });
+
+    return Array.isArray(response) ? response : [];
+  }
+
+  async resolveCodeAction(action: CodeAction) {
+    if (action.edit) {
+      return action;
+    }
+
+    return await this.request("codeAction/resolve", action) as CodeAction;
+  }
+
+  async syncDocument(file: string) {
+    await this.ensureStarted();
+    return await this.documents.sync(file);
+  }
+
+  async waitForRoslynOperations(operations: string[]) {
+    try {
+      await this.request("workspace/waitForAsyncOperations", { operations });
+    } catch {
+      // Internal Roslyn test hook; ignore if unavailable.
+    }
+  }
+
+  async request(method: string, params: unknown) {
+    await this.ensureStarted();
+    return await this.connection!.request(method, params);
+  }
+
+  private notify(method: string, params: unknown) {
+    this.connection!.notify(method, params);
+  }
+
+  private async ensureStarted() {
+    if (!this.initialized) {
+      this.initialized = this.start();
+    }
+    await this.initialized;
+  }
+
+  private async start() {
+    const command = await getRoslynCommand();
+    const args = (process.env.OPENCODE_SHARP_ROSLYN_ARGS || "--stdio --autoLoadProjects").split(" ").map((arg) => arg.trim()).filter(Boolean);
+    this.connection = new RpcConnection(command, args, this.root, (message) => handleServerRequest(this.root, message));
+    await this.connection.start();
+    await this.connection.request("initialize", getInitializeParams(this.root));
+    this.connection.notify("initialized", {});
+  }
+}
