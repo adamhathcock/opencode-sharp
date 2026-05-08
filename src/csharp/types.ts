@@ -18,6 +18,18 @@ export type Diagnostic = {
   message: string;
 };
 
+export type Location = {
+  uri: string;
+  range: Range;
+};
+
+export type LocationLink = {
+  targetUri: string;
+  targetRange: Range;
+  targetSelectionRange: Range;
+  originSelectionRange?: Range;
+};
+
 export type CodeAction = {
   title: string;
   kind?: string;

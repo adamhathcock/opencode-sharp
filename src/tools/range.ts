@@ -1,4 +1,5 @@
 import type { Range } from "../csharp/types";
+import { oneBasedToZeroBased } from "./position";
 
 type RangeArgs = {
   startLine?: number;
@@ -27,8 +28,4 @@ export function getRange(args: RangeArgs, text: string): Range {
       character: oneBasedToZeroBased(args.endColumn ?? args.startColumn ?? 1)
     }
   };
-}
-
-function oneBasedToZeroBased(value: number) {
-  return Math.max(0, Math.floor(value) - 1);
 }

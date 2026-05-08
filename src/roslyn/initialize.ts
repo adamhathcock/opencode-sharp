@@ -18,6 +18,10 @@ export function getInitializeParams(root: string) {
       textDocument: {
         synchronization: { didSave: true, dynamicRegistration: false },
         diagnostic: { dynamicRegistration: false },
+        definition: { dynamicRegistration: false, linkSupport: true },
+        declaration: { dynamicRegistration: false, linkSupport: true },
+        typeDefinition: { dynamicRegistration: false, linkSupport: true },
+        references: { dynamicRegistration: false },
         codeAction: {
           dynamicRegistration: false,
           codeActionLiteralSupport: {

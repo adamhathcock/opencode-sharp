@@ -3,8 +3,11 @@ import type { Plugin } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { CodeActionOrCommand } from "./csharp/types";
+import type { SymbolLocationKind } from "./roslyn/client";
 import { isCodeAction, summarizeCodeAction } from "./tools/codeActions";
+import { normalizeLocations } from "./tools/locations";
 import { resolveWorkspacePath } from "./tools/paths";
+import { getPosition } from "./tools/position";
 import { getRange } from "./tools/range";
 import { getErrorMessage, resolveCachedCodeAction } from "./tools/resolveCodeAction";
 import { applyWorkspaceEdit } from "./tools/workspaceEdit";
@@ -60,6 +63,51 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
         recordToolUsage("csharp_workspace_symbols");
         const client = getClient(context);
         return json({ ok: true, query: args.query, symbols: await client.workspaceSymbols(args.query) });
+      }
+    }),
+    csharp_symbol_locations: tool({
+      description: "Find Roslyn definition, declaration, or type-definition locations for a C# symbol position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+        kind: tool.schema.string().optional()
+      },
+      async execute(args, context) {
+        recordToolUsage("csharp_symbol_locations");
+        const requestedKind = args.kind ?? "definition";
+        if (!isSymbolLocationKind(requestedKind) && requestedKind !== "all") {
+          return json({ ok: false, error: `Unsupported symbol location kind: ${requestedKind}` });
+        }
+
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        const kinds = requestedKind === "all" ? symbolLocationKinds : [requestedKind];
+        const results = await Promise.all(kinds.map(async (kind) => ({
+          kind,
+          locations: normalizeLocations(await client.symbolLocations(file, position, kind))
+        })));
+
+        return json({ ok: true, file, position, results });
+      }
+    }),
+    csharp_references: tool({
+      description: "Find Roslyn references for a C# symbol position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+        includeDeclaration: tool.schema.boolean().optional()
+      },
+      async execute(args, context) {
+        recordToolUsage("csharp_references");
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        const includeDeclaration = args.includeDeclaration ?? true;
+        const references = normalizeLocations(await client.references(file, position, includeDeclaration));
+        return json({ ok: true, file, position, includeDeclaration, references });
       }
     }),
     csharp_code_actions: tool({
@@ -119,4 +167,10 @@ async function refreshStatusSnapshot(root: string) {
   const resolved = path.resolve(root);
   const status = getStatus(getClientForRoot(resolved));
   await writeStatusSnapshot(resolved, status);
+}
+
+const symbolLocationKinds: SymbolLocationKind[] = ["definition", "declaration", "typeDefinition"];
+
+function isSymbolLocationKind(kind: string): kind is SymbolLocationKind {
+  return symbolLocationKinds.includes(kind as SymbolLocationKind);
 }

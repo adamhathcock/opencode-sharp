@@ -109,6 +109,14 @@ Pulls diagnostics for a C# file from Roslyn. The tool currently queries both pub
 
 Searches symbols across Roslyn's loaded workspace using `workspace/symbol`. Results depend on the sidecar successfully loading the solution/projects through `--autoLoadProjects`; empty Roslyn results are returned as-is.
 
+`csharp_symbol_locations`
+
+Finds definition-like locations for a C# symbol position using Roslyn. The `kind` argument accepts `definition`, `declaration`, `typeDefinition`, or `all`; line and column inputs are one-based and converted to LSP zero-based positions internally.
+
+`csharp_references`
+
+Finds references for a C# symbol position using Roslyn's `textDocument/references`. The `includeDeclaration` argument defaults to `true`; line and column inputs are one-based and converted to LSP zero-based positions internally.
+
 `csharp_code_actions`
 
 Lists Roslyn code actions for a C# file range. Line and column inputs are one-based for agent friendliness and converted to LSP zero-based positions internally. Returned actions include IDs that can be passed to `csharp_apply_code_action`.
@@ -123,8 +131,8 @@ The following Roslyn language-server features are candidates for first-class ope
 
 | Priority | Feature | Usefulness | Implementation fit |
 | --- | --- | --- | --- |
-| 1 | Go to definition, declaration, and type definition | Core navigation for understanding code quickly. | Easy: use `textDocument/definition`, `textDocument/declaration`, and `textDocument/typeDefinition` with existing document sync and position handling. |
-| 2 | Find references | Essential before changing APIs, renaming symbols, or deleting code. | Easy: use `textDocument/references` and return locations grouped by file. |
+| 1 | Go to definition, declaration, and type definition | Core navigation for understanding code quickly. | Implemented as `csharp_symbol_locations` using `textDocument/definition`, `textDocument/declaration`, and `textDocument/typeDefinition`. |
+| 2 | Find references | Essential before changing APIs, renaming symbols, or deleting code. | Implemented as `csharp_references` using `textDocument/references`. |
 | 3 | Rename symbol | High-value Roslyn-backed refactoring with semantic correctness. | Medium-easy: use `textDocument/prepareRename` and `textDocument/rename`, then apply the returned `WorkspaceEdit`. |
 | 4 | Hover info | Exposes type information, signatures, XML docs, and nullable context. | Easy: use `textDocument/hover` and return the raw or lightly normalized hover contents. |
 | 5 | Document symbols | Gives a fast outline of classes, methods, properties, and fields in a file. | Easy: use `textDocument/documentSymbol`; complements the existing workspace symbol search. |
@@ -141,10 +149,17 @@ The following Roslyn language-server features are candidates for first-class ope
 
 Recommended implementation order:
 
-1. Add navigation tools first: definition, references, hover, document symbols, and implementation lookup.
+1. Add navigation tools first: definition and references are implemented; hover, document symbols, and implementation lookup remain next candidates.
 2. Add refactoring and cleanup tools next: rename, formatting, and organize imports.
 3. Add richer analysis tools after that: signature help, inlay hints, and call hierarchy.
 4. Treat completion, semantic tokens, folding, selection ranges, and document highlights as lower priority unless a concrete opencode workflow needs them.
+
+Implemented priority 1 and 2 notes:
+
+- `src/tools/position.ts` centralizes one-based tool input conversion to LSP zero-based positions.
+- `src/tools/locations.ts` normalizes Roslyn `Location` and `LocationLink` responses into tool-friendly URI, file, and range objects.
+- `src/roslyn/client.ts` exposes focused wrappers for definition-like symbol location requests and references.
+- `src/index.ts` registers `csharp_symbol_locations` and `csharp_references` without changing existing tool names.
 
 ## Source Layout
 

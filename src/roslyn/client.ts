@@ -1,4 +1,4 @@
-import type { CodeAction, Range } from "../csharp/types";
+import type { CodeAction, Position, Range } from "../csharp/types";
 import { getStableCodeActions } from "./codeActionPolling";
 import { getRoslynCommand } from "./command";
 import { getDiagnostics } from "./diagnostics";
@@ -6,6 +6,14 @@ import { DocumentStore } from "./documents";
 import { getInitializeParams } from "./initialize";
 import { handleServerRequest } from "./serverRequests";
 import { RpcConnection } from "./rpcConnection";
+
+export type SymbolLocationKind = "definition" | "declaration" | "typeDefinition";
+
+const symbolLocationMethods: Record<SymbolLocationKind, string> = {
+  definition: "textDocument/definition",
+  declaration: "textDocument/declaration",
+  typeDefinition: "textDocument/typeDefinition"
+};
 
 export class RoslynLspClient {
   private connection: RpcConnection | undefined;
@@ -35,6 +43,24 @@ export class RoslynLspClient {
 
   async workspaceSymbols(query: string) {
     const response = await this.request("workspace/symbol", { query });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async symbolLocations(file: string, position: Position, kind: SymbolLocationKind) {
+    const document = await this.syncDocument(file);
+    return await this.request(symbolLocationMethods[kind], {
+      textDocument: { uri: document.uri },
+      position
+    });
+  }
+
+  async references(file: string, position: Position, includeDeclaration: boolean) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/references", {
+      textDocument: { uri: document.uri },
+      position,
+      context: { includeDeclaration }
+    });
     return Array.isArray(response) ? response : [];
   }
 
