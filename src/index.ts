@@ -5,6 +5,7 @@ import path from "node:path";
 import type { CodeActionOrCommand } from "./csharp/types";
 import type { SymbolLocationKind } from "./roslyn/client";
 import { isCodeAction, summarizeCodeAction } from "./tools/codeActions";
+import { isCSharpFile, resolveRootPath } from "./tools/csharpFiles";
 import { normalizeLocations } from "./tools/locations";
 import { resolveWorkspacePath } from "./tools/paths";
 import { getPosition } from "./tools/position";
@@ -20,10 +21,35 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
   event: async ({ event }) => {
     if (event.type === "server.instance.disposed") {
       await shutdownAllClients();
+      return;
+    }
+
+    const root = pluginContext.worktree || pluginContext.directory;
+    if (event.type === "file.edited") {
+      await preloadCSharpFile(root, event.properties.file);
+    }
+    if (event.type === "file.watcher.updated" && event.properties.event !== "unlink") {
+      await preloadCSharpFile(root, event.properties.file);
+    }
+    if (event.type === "message.part.updated") {
+      await preloadCSharpFile(root, getCSharpPathFromPart(event.properties.part));
     }
   },
   "chat.message": async () => {
     await refreshStatusSnapshot(pluginContext.worktree || pluginContext.directory);
+  },
+  "tool.execute.after": async (input) => {
+    if (input.tool === "read") {
+      await preloadCSharpFile(pluginContext.worktree || pluginContext.directory, getStringProperty(input.args, "filePath"));
+    }
+  },
+  "experimental.chat.system.transform": async (_input, output) => {
+    output.system.push(csharpToolPreferencePrompt);
+  },
+  "tool.definition": async (input, output) => {
+    if (shouldGuideToolDefinition(input.toolID)) {
+      output.description = `${output.description}\n\nFor C#/.cs semantic work, prefer the opencode-sharp Roslyn tools: csharp_diagnostics, csharp_symbol_locations, csharp_references, csharp_workspace_symbols, csharp_code_actions, and csharp_apply_code_action.`;
+    }
   },
   tool: {
     csharp_lsp_status: tool({
@@ -47,7 +73,7 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       }
     }),
     csharp_diagnostics: tool({
-      description: "Pull Roslyn diagnostics for a C# file using the sidecar language server.",
+      description: "Preferred tool for .cs diagnostics. Pull Roslyn diagnostics for a C# file using the opencode-sharp sidecar instead of generic LSP diagnostics.",
       args: { file: tool.schema.string() },
       async execute(args, context) {
         recordToolUsage("csharp_diagnostics");
@@ -57,7 +83,7 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       }
     }),
     csharp_workspace_symbols: tool({
-      description: "Search Roslyn workspace symbols across the loaded C# solution/projects.",
+      description: "Preferred tool for C# workspace symbols. Search Roslyn workspace symbols across loaded C# solutions/projects instead of generic workspace symbol tools.",
       args: { query: tool.schema.string() },
       async execute(args, context) {
         recordToolUsage("csharp_workspace_symbols");
@@ -66,7 +92,7 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       }
     }),
     csharp_symbol_locations: tool({
-      description: "Find Roslyn definition, declaration, or type-definition locations for a C# symbol position.",
+      description: "Preferred tool for .cs definitions, declarations, and type definitions. Use Roslyn symbol locations instead of generic LSP location tools.",
       args: {
         file: tool.schema.string(),
         line: tool.schema.number(),
@@ -93,7 +119,7 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       }
     }),
     csharp_references: tool({
-      description: "Find Roslyn references for a C# symbol position.",
+      description: "Preferred tool for .cs references. Find Roslyn references for a C# symbol position instead of generic LSP reference tools.",
       args: {
         file: tool.schema.string(),
         line: tool.schema.number(),
@@ -111,7 +137,7 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       }
     }),
     csharp_code_actions: tool({
-      description: "List Roslyn code actions for a C# file range and return IDs that can be applied.",
+      description: "Preferred tool for .cs fixes/refactorings. List Roslyn code actions for a C# file range and return IDs that can be applied instead of generic code-action tools.",
       args: {
         file: tool.schema.string(),
         startLine: tool.schema.number().optional(),
@@ -131,7 +157,7 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       }
     }),
     csharp_apply_code_action: tool({
-      description: "Apply a Roslyn code action returned by csharp_code_actions when it contains a workspace edit.",
+      description: "Preferred tool for applying .cs fixes/refactorings. Apply a Roslyn code action returned by csharp_code_actions when it contains a workspace edit.",
       args: { id: tool.schema.string() },
       async execute(args) {
         recordToolUsage("csharp_apply_code_action");
@@ -168,6 +194,71 @@ async function refreshStatusSnapshot(root: string) {
   const status = getStatus(getClientForRoot(resolved));
   await writeStatusSnapshot(resolved, status);
 }
+
+async function preloadCSharpFile(root: string, file: string | undefined) {
+  if (!isCSharpFile(file)) {
+    return;
+  }
+
+  const resolvedRoot = path.resolve(root);
+  const resolvedFile = resolveRootPath(resolvedRoot, file);
+  const client = getClientForRoot(resolvedRoot);
+  recordToolUsage("csharp_preload_document");
+  await client.preloadDocument(resolvedFile);
+  await writeStatusSnapshot(resolvedRoot, getStatus(client));
+}
+
+function getCSharpPathFromPart(part: unknown) {
+  if (!isRecord(part)) {
+    return undefined;
+  }
+
+  const source = part.source;
+  if (isRecord(source)) {
+    const sourcePath = getStringProperty(source, "path");
+    if (isCSharpFile(sourcePath)) {
+      return sourcePath;
+    }
+  }
+
+  return getStringProperty(part, "filename");
+}
+
+function getStringProperty(value: unknown, key: string) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const property = value[key];
+  return typeof property === "string" ? property : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function shouldGuideToolDefinition(toolID: string) {
+  const normalized = toolID.toLowerCase();
+  if (normalized.startsWith("csharp_")) {
+    return false;
+  }
+
+  return normalized.includes("lsp")
+    || normalized.includes("diagnostic")
+    || normalized.includes("symbol")
+    || normalized.includes("reference")
+    || normalized.includes("codeaction")
+    || normalized.includes("code_action")
+    || normalized.includes("code-action");
+}
+
+const csharpToolPreferencePrompt = `For C#/.cs semantic operations, prefer opencode-sharp Roslyn tools over built-in or generic LSP tools.
+Use csharp_diagnostics for .cs diagnostics.
+Use csharp_symbol_locations for definitions, declarations, and type definitions in .cs files.
+Use csharp_references for references in .cs files.
+Use csharp_workspace_symbols for C# workspace symbol searches.
+Use csharp_code_actions followed by csharp_apply_code_action for C# fixes and refactorings.
+Use generic tools only when the C# Roslyn tool does not cover the operation.`;
 
 const symbolLocationKinds: SymbolLocationKind[] = ["definition", "declaration", "typeDefinition"];
 

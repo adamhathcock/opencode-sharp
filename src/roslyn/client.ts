@@ -41,6 +41,11 @@ export class RoslynLspClient {
     return getDiagnostics(this, file);
   }
 
+  async preloadDocument(file: string) {
+    await this.syncDocument(file);
+    await this.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy", "DiagnosticService"]);
+  }
+
   async workspaceSymbols(query: string) {
     const response = await this.request("workspace/symbol", { query });
     return Array.isArray(response) ? response : [];
