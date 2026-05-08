@@ -7,10 +7,13 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 ## Project Structure
 
 - `src/index.ts` defines the opencode plugin and registers tools.
+- `src/tui.tsx` defines the TUI sidebar plugin that displays the latest C# Roslyn status snapshot.
 - `src/roslyn/` contains the Roslyn language-server sidecar client, JSON-RPC connection, initialization, document sync, diagnostics, and server request handling.
 - `src/lsp/` contains JSON-RPC/LSP wire types.
 - `src/csharp/` contains C# domain types used by tool responses.
+- `src/status/` contains shared status snapshot read/write helpers used by server and TUI plugin targets.
 - `src/tools/` contains tool-facing helpers for ranges, code actions, paths, and workspace edits.
+- `src/usage/` tracks recent plugin tool and Roslyn LSP method usage for status output.
 - `src/shared/` contains small shared utilities.
 - `dist/` contains compiled JavaScript and declaration output from TypeScript.
 - `package.json` defines the Bun/TypeScript workflow and opencode plugin dependencies.
@@ -26,6 +29,7 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 ## Current Tools
 
 - `csharp_lsp_status`: returns status for the Roslyn sidecar, including open document count, logs, stderr, and exit information.
+- `csharp_lsp_status` also writes the status snapshot consumed by the TUI sidebar plugin.
 - `csharp_lsp_shutdown`: shuts down sidecar instances and clears cached code actions.
 - `csharp_diagnostics`: pulls Roslyn diagnostics for a C# file through public and VS-internal diagnostic LSP requests.
 - `csharp_code_actions`: lists Roslyn code actions for a file range and caches returned actions by ID.
@@ -39,6 +43,8 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - Default arguments are `--stdio --autoLoadProjects`.
 - `OPENCODE_SHARP_ROSLYN_ARGS` can override the argument string.
 - Keep one Roslyn client per worktree through `src/state.ts`; do not spawn a process per tool call.
+- The server plugin refreshes the status snapshot after each incoming chat message through the `chat.message` hook.
+- The TUI plugin reads status snapshots from a temp-file location derived from the worktree path; do not make it call Roslyn directly.
 
 ## Development
 
@@ -54,7 +60,7 @@ Default to Bun for JavaScript and TypeScript work in this repository.
 - Keep changes small and targeted.
 - Preserve the opencode plugin API shape unless the task explicitly requires changing it.
 - Prefer adding focused tools over broad, ambiguous tool behavior.
-- Keep files around 100 lines when practical; split by responsibility using the existing subfolders.
+- Keep files under roughly 200 lines when practical; split by responsibility when a file is mixing concerns, not just to satisfy a line count.
 - Validate all tool inputs through the plugin schema.
 - Return JSON or another predictable structured format from tools when possible.
 - Treat this as an augmentation layer for opencode's existing C# LSP support, not a replacement for it.

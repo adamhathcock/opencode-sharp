@@ -37,6 +37,28 @@ Build the plugin:
 bun run build
 ```
 
+## opencode Configuration
+
+Use the server plugin from opencode config:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-sharp/server"]
+}
+```
+
+Use the TUI sidebar plugin from TUI config:
+
+```json
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "plugin": ["opencode-sharp/tui"]
+}
+```
+
+The TUI plugin reads the latest status snapshot written by the server plugin and renders it in the session sidebar. The server plugin refreshes that snapshot when `csharp_lsp_status` runs and after each incoming chat message.
+
 Run TypeScript in watch mode:
 
 ```bash
@@ -73,7 +95,7 @@ OPENCODE_SHARP_ROSLYN_ARGS="--stdio --autoLoadProjects --logLevel Information"
 
 `csharp_lsp_status`
 
-Returns sidecar status, including whether the Roslyn process is running, open document count, recent log messages, stderr, and last exit info.
+Returns sidecar status, including whether the Roslyn process is running, open document count, recent log messages, stderr, last exit info, and recent tool/LSP usage. It also writes the status snapshot consumed by the TUI sidebar plugin.
 
 `csharp_lsp_shutdown`
 
@@ -94,10 +116,13 @@ Resolves and applies a cached code action when Roslyn returns a workspace edit. 
 ## Source Layout
 
 - `src/index.ts`: opencode plugin entrypoint and tool registration.
+- `src/tui.tsx`: TUI plugin entrypoint for the sidebar status panel.
 - `src/roslyn/`: Roslyn sidecar client, JSON-RPC transport, initialization, diagnostics, document sync, and request handling.
 - `src/lsp/`: JSON-RPC/LSP wire types.
 - `src/csharp/`: C# domain types used by the plugin.
+- `src/status/`: status snapshot persistence shared by the server and TUI plugins.
 - `src/tools/`: tool helper logic for code actions, ranges, paths, and workspace edits.
+- `src/usage/`: in-memory usage tracking for plugin tools and Roslyn LSP methods.
 - `src/shared/`: small shared utilities.
 - `dist/`: compiled output produced by `bun run build`.
 

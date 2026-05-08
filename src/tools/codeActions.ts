@@ -29,6 +29,10 @@ export function summarizeCodeAction(id: string, action: CodeActionOrCommand) {
   };
 }
 
+export function findMatchingCodeAction(actions: CodeActionOrCommand[], target: CodeAction) {
+  return actions.find((action): action is CodeAction => isCodeAction(action) && action.title === target.title && action.kind === target.kind);
+}
+
 export function isCodeAction(action: CodeActionOrCommand): action is CodeAction {
   return !("command" in action && typeof action.command === "string" && !("kind" in action) && !("edit" in action));
 }

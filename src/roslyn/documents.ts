@@ -34,7 +34,8 @@ export class DocumentStore {
     if (existing.text !== text) {
       existing.text = text;
       existing.version += 1;
-      this.notify("textDocument/didChange", { textDocument: { uri, version: existing.version }, contentChanges: [{ text }] });
+      this.notify("textDocument/didClose", { textDocument: { uri } });
+      this.notify("textDocument/didOpen", { textDocument: { uri, languageId: "csharp", version: existing.version, text } });
     }
 
     return existing;

@@ -1,15 +1,34 @@
 {
-  "name": "opencode-sharp",  "version": "0.0.1",
-  "module": "index.ts",
+  "name": "opencode-sharp",
+  "version": "0.0.1",
+  "module": "dist/index.js",
   "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tui": {
+      "import": "./dist/tui.jsx",
+      "types": "./dist/tui.d.ts"
+    }
+  },
   "private": true,
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
   },
- "dependencies": {
+  "dependencies": {
     "@opencode-ai/plugin": "latest",
     "@opencode-ai/sdk": "latest",
+    "@opentui/core": "^0.2.5",
+    "@opentui/solid": "^0.2.5",
+    "solid-js": "^1.9.12",
     "zod": "latest"
   },
   "devDependencies": {

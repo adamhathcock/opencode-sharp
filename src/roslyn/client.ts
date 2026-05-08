@@ -1,4 +1,5 @@
 import type { CodeAction, Range } from "../csharp/types";
+import { getStableCodeActions } from "./codeActionPolling";
 import { getRoslynCommand } from "./command";
 import { getDiagnostics } from "./diagnostics";
 import { DocumentStore } from "./documents";
@@ -34,14 +35,7 @@ export class RoslynLspClient {
 
   async codeActions(file: string, range: Range) {
     const document = await this.syncDocument(file);
-    await this.waitForRoslynOperations(["Workspace", "LightBulb"]);
-    const response = await this.request("textDocument/codeAction", {
-      textDocument: { uri: document.uri },
-      range,
-      context: { diagnostics: [] }
-    });
-
-    return Array.isArray(response) ? response : [];
+    return await getStableCodeActions(document.uri, range, (method, params) => this.request(method, params), (operations) => this.waitForRoslynOperations(operations));
   }
 
   async resolveCodeAction(action: CodeAction) {

@@ -3,6 +3,7 @@ import type { JsonRpcMessage } from "../lsp/types";
 import { formatMessage, MessageBuffer } from "./framing";
 import { MessageLog } from "./messageLog";
 import { PendingRequests } from "./pendingRequests";
+import { recordLspUsage } from "../usage";
 
 type RequestHandler = (message: JsonRpcMessage) => unknown;
 
@@ -13,12 +14,7 @@ export class RpcConnection {
   private log = new MessageLog();
   private lastExit: { code: number | null; signal: NodeJS.Signals | null } | undefined;
 
-  constructor(
-    private readonly command: string,
-    private readonly args: string[],
-    private readonly cwd: string,
-    private readonly handleRequest: RequestHandler
-  ) {}
+  constructor(private readonly command: string, private readonly args: string[], private readonly cwd: string, private readonly handleRequest: RequestHandler) {}
 
   status() {
     return {
@@ -59,6 +55,7 @@ export class RpcConnection {
       return Promise.reject(new Error("roslyn-language-server is not running"));
     }
 
+    recordLspUsage(method);
     const { id, promise } = this.pending.create(method);
     this.write({ jsonrpc: "2.0", id, method, params });
     return promise;
