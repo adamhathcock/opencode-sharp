@@ -105,6 +105,10 @@ Shuts down all Roslyn sidecars managed by the plugin and clears cached code acti
 
 Pulls diagnostics for a C# file from Roslyn. The tool currently queries both public `textDocument/diagnostic` and VS-internal `textdocument/_vs_diagnostic` methods for compiler and analyzer categories.
 
+`csharp_workspace_symbols`
+
+Searches symbols across Roslyn's loaded workspace using `workspace/symbol`. Results depend on the sidecar successfully loading the solution/projects through `--autoLoadProjects`; empty Roslyn results are returned as-is.
+
 `csharp_code_actions`
 
 Lists Roslyn code actions for a C# file range. Line and column inputs are one-based for agent friendliness and converted to LSP zero-based positions internally. Returned actions include IDs that can be passed to `csharp_apply_code_action`.
@@ -112,6 +116,35 @@ Lists Roslyn code actions for a C# file range. Line and column inputs are one-ba
 `csharp_apply_code_action`
 
 Resolves and applies a cached code action when Roslyn returns a workspace edit. Command-only actions are reported as unsupported for now.
+
+## Roslyn Feature Priorities
+
+The following Roslyn language-server features are candidates for first-class opencode-sharp tools, prioritized by usefulness to C# developers and ease of implementation in this plugin.
+
+| Priority | Feature | Usefulness | Implementation fit |
+| --- | --- | --- | --- |
+| 1 | Go to definition, declaration, and type definition | Core navigation for understanding code quickly. | Easy: use `textDocument/definition`, `textDocument/declaration`, and `textDocument/typeDefinition` with existing document sync and position handling. |
+| 2 | Find references | Essential before changing APIs, renaming symbols, or deleting code. | Easy: use `textDocument/references` and return locations grouped by file. |
+| 3 | Rename symbol | High-value Roslyn-backed refactoring with semantic correctness. | Medium-easy: use `textDocument/prepareRename` and `textDocument/rename`, then apply the returned `WorkspaceEdit`. |
+| 4 | Hover info | Exposes type information, signatures, XML docs, and nullable context. | Easy: use `textDocument/hover` and return the raw or lightly normalized hover contents. |
+| 5 | Document symbols | Gives a fast outline of classes, methods, properties, and fields in a file. | Easy: use `textDocument/documentSymbol`; complements the existing workspace symbol search. |
+| 6 | Signature help | Useful when editing method calls or generating argument lists. | Easy-medium: use `textDocument/signatureHelp` with a file position. |
+| 7 | Implementation lookup | Valuable for interfaces, abstract members, and inheritance-heavy code. | Easy: use `textDocument/implementation`. |
+| 8 | Formatting | Practical cleanup after generated edits. | Medium: use `textDocument/formatting` or `textDocument/rangeFormatting`, then apply returned edits. |
+| 9 | Organize imports | Common cleanup after adding, moving, or generating code. | Medium-low effort: already available through code actions, but useful as a dedicated convenience tool. |
+| 10 | Completion | Useful in editors, but can be noisy for agent workflows. | Medium: use `textDocument/completion` and optionally `completionItem/resolve`; needs filtering to be useful. |
+| 11 | Inlay hints | Helps explain inferred types and parameter names. | Medium: use `textDocument/inlayHint`; best as a read-only understanding tool. |
+| 12 | Call hierarchy | Useful for impact analysis and tracing execution flow. | Medium: use `textDocument/prepareCallHierarchy`, incoming calls, and outgoing calls. |
+| 13 | Semantic tokens | Mostly editor-facing, with limited direct value as a tool response. | Medium-hard: useful only if converted into higher-level analysis. |
+| 14 | Folding and selection ranges | Editor convenience features. | Easy but low priority for opencode-sharp. |
+| 15 | Document highlights | Shows local symbol usage near the cursor. | Easy but mostly superseded by find references. |
+
+Recommended implementation order:
+
+1. Add navigation tools first: definition, references, hover, document symbols, and implementation lookup.
+2. Add refactoring and cleanup tools next: rename, formatting, and organize imports.
+3. Add richer analysis tools after that: signature help, inlay hints, and call hierarchy.
+4. Treat completion, semantic tokens, folding, selection ranges, and document highlights as lower priority unless a concrete opencode workflow needs them.
 
 ## Source Layout
 

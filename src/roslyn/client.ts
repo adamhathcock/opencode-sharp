@@ -33,6 +33,11 @@ export class RoslynLspClient {
     return getDiagnostics(this, file);
   }
 
+  async workspaceSymbols(query: string) {
+    const response = await this.request("workspace/symbol", { query });
+    return Array.isArray(response) ? response : [];
+  }
+
   async codeActions(file: string, range: Range) {
     const document = await this.syncDocument(file);
     return await getStableCodeActions(document.uri, range, (method, params) => this.request(method, params), (operations) => this.waitForRoslynOperations(operations));

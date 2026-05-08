@@ -53,6 +53,15 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
         return json({ ok: true, file, diagnostics: await client.diagnostics(file) });
       }
     }),
+    csharp_workspace_symbols: tool({
+      description: "Search Roslyn workspace symbols across the loaded C# solution/projects.",
+      args: { query: tool.schema.string() },
+      async execute(args, context) {
+        recordToolUsage("csharp_workspace_symbols");
+        const client = getClient(context);
+        return json({ ok: true, query: args.query, symbols: await client.workspaceSymbols(args.query) });
+      }
+    }),
     csharp_code_actions: tool({
       description: "List Roslyn code actions for a C# file range and return IDs that can be applied.",
       args: {

@@ -32,6 +32,7 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - `csharp_lsp_status` also writes the status snapshot consumed by the TUI sidebar plugin.
 - `csharp_lsp_shutdown`: shuts down sidecar instances and clears cached code actions.
 - `csharp_diagnostics`: pulls Roslyn diagnostics for a C# file through public and VS-internal diagnostic LSP requests.
+- `csharp_workspace_symbols`: searches Roslyn workspace symbols across loaded C# solutions/projects through `workspace/symbol`.
 - `csharp_code_actions`: lists Roslyn code actions for a file range and caches returned actions by ID.
 - `csharp_apply_code_action`: resolves and applies a cached Roslyn code action when it contains a workspace edit.
 
