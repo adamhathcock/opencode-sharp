@@ -23,28 +23,11 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
       await shutdownAllClients();
       return;
     }
-
-    const root = pluginContext.worktree || pluginContext.directory;
-    if (event.type === "file.edited") {
-      await preloadCSharpFile(root, event.properties.file);
-    }
-    if (event.type === "file.watcher.updated" && event.properties.event !== "unlink") {
-      await preloadCSharpFile(root, event.properties.file);
-    }
-    if (event.type === "message.part.updated") {
-      await preloadCSharpFile(root, getCSharpPathFromPart(event.properties.part));
-    }
-  },
-  "chat.message": async () => {
-    await refreshStatusSnapshot(pluginContext.worktree || pluginContext.directory);
   },
   "tool.execute.after": async (input) => {
     if (input.tool === "read") {
       await preloadCSharpFile(pluginContext.worktree || pluginContext.directory, getStringProperty(input.args, "filePath"));
     }
-  },
-  "experimental.chat.system.transform": async (_input, output) => {
-    output.system.push(csharpToolPreferencePrompt);
   },
   "tool.definition": async (input, output) => {
     if (shouldGuideToolDefinition(input.toolID)) {
@@ -189,12 +172,6 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
 
 export default CSharpLspPlugin;
 
-async function refreshStatusSnapshot(root: string) {
-  const resolved = path.resolve(root);
-  const status = getStatus(getClientForRoot(resolved));
-  await writeStatusSnapshot(resolved, status);
-}
-
 async function preloadCSharpFile(root: string, file: string | undefined) {
   if (!isCSharpFile(file)) {
     return;
@@ -206,22 +183,6 @@ async function preloadCSharpFile(root: string, file: string | undefined) {
   recordToolUsage("csharp_preload_document");
   await client.preloadDocument(resolvedFile);
   await writeStatusSnapshot(resolvedRoot, getStatus(client));
-}
-
-function getCSharpPathFromPart(part: unknown) {
-  if (!isRecord(part)) {
-    return undefined;
-  }
-
-  const source = part.source;
-  if (isRecord(source)) {
-    const sourcePath = getStringProperty(source, "path");
-    if (isCSharpFile(sourcePath)) {
-      return sourcePath;
-    }
-  }
-
-  return getStringProperty(part, "filename");
 }
 
 function getStringProperty(value: unknown, key: string) {
@@ -251,14 +212,6 @@ function shouldGuideToolDefinition(toolID: string) {
     || normalized.includes("code_action")
     || normalized.includes("code-action");
 }
-
-const csharpToolPreferencePrompt = `For C#/.cs semantic operations, prefer opencode-sharp Roslyn tools over built-in or generic LSP tools.
-Use csharp_diagnostics for .cs diagnostics.
-Use csharp_symbol_locations for definitions, declarations, and type definitions in .cs files.
-Use csharp_references for references in .cs files.
-Use csharp_workspace_symbols for C# workspace symbol searches.
-Use csharp_code_actions followed by csharp_apply_code_action for C# fixes and refactorings.
-Use generic tools only when the C# Roslyn tool does not cover the operation.`;
 
 const symbolLocationKinds: SymbolLocationKind[] = ["definition", "declaration", "typeDefinition"];
 
