@@ -1,5 +1,12 @@
 import { fileURLToPath } from "node:url";
-import type { Location, LocationLink, Position, Range } from "../csharp/types";
+import type {
+  Location,
+  LocationLink,
+  Position,
+  Range,
+  TypeHierarchyItem,
+  WorkspaceSymbol,
+} from "../csharp/types";
 import { isRecord } from "../shared/json";
 
 export type LocationKind = "definition" | "typeDefinition" | "implementation";
@@ -18,6 +25,16 @@ export type NormalizedLocation = {
   targetSelectionRange?: unknown;
 };
 
+export type NormalizedWorkspaceSymbol = WorkspaceSymbol & {
+  file?: string;
+  position?: ToolPosition;
+};
+
+export type NormalizedTypeHierarchyItem = TypeHierarchyItem & {
+  file?: string;
+  position?: ToolPosition;
+};
+
 export function normalizeLocations(response: unknown): NormalizedLocation[] {
   const items = Array.isArray(response)
     ? response
@@ -25,6 +42,35 @@ export function normalizeLocations(response: unknown): NormalizedLocation[] {
       ? []
       : [response];
   return items.flatMap((item) => normalizeLocation(item));
+}
+
+export function normalizeWorkspaceSymbols(
+  symbols: WorkspaceSymbol[],
+): NormalizedWorkspaceSymbol[] {
+  return symbols.map((symbol) => {
+    const location: Record<string, unknown> | undefined = isRecord(
+      symbol.location,
+    )
+      ? symbol.location
+      : undefined;
+    const uri = typeof location?.uri === "string" ? location.uri : undefined;
+    const range = location?.["range"];
+    return {
+      ...symbol,
+      file: uri ? uriToFile(uri) : undefined,
+      position: rangeStartToToolPosition(range),
+    };
+  });
+}
+
+export function normalizeTypeHierarchyItems(
+  items: TypeHierarchyItem[],
+): NormalizedTypeHierarchyItem[] {
+  return items.map((item) => ({
+    ...item,
+    file: uriToFile(item.uri),
+    position: rangeStartToToolPosition(item.selectionRange ?? item.range),
+  }));
 }
 
 function normalizeLocation(item: unknown): NormalizedLocation[] {

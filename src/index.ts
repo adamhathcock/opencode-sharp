@@ -1,10 +1,18 @@
 import { tool } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
-import type { CodeAction, CodeActionOrCommand, WorkspaceEdit } from "./csharp/types";
+import type {
+  CodeAction,
+  CodeActionOrCommand,
+  TypeHierarchyItem,
+  WorkspaceEdit,
+  WorkspaceSymbol,
+} from "./csharp/types";
 import { shutdownClientForRoot, getClient } from "./state";
 import {
   normalizeLocations,
+  normalizeTypeHierarchyItems,
+  normalizeWorkspaceSymbols,
   positionToToolPosition,
   rangeStartToToolPosition,
 } from "./tools/locations";
@@ -13,7 +21,11 @@ import { getPosition } from "./tools/position";
 import { getRange } from "./tools/range";
 import { json, isRecord } from "./shared/json";
 import { applyWorkspaceEdit } from "./tools/workspaceEdit";
-import { isCodeAction } from "./tools/codeActions";
+import {
+  findCodeActionById,
+  flattenCodeActions,
+  isCodeAction,
+} from "./tools/codeActions";
 
 export const CSharpLspPlugin: Plugin = async () => ({
   async event({ event }) {
@@ -48,6 +60,61 @@ export const CSharpLspPlugin: Plugin = async () => ({
           hover,
           definition: normalizeLocations(definition),
           documentSymbols: normalizeSymbols(symbols),
+        });
+      },
+    }),
+    csharp_symbol_locations: tool({
+      description:
+        "Find C# definition, type definition, or implementation locations for a symbol position using Roslyn.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+        kind: tool.schema.string().optional(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        const kind = getLocationKind(args.kind);
+
+        return json({
+          ok: true,
+          file,
+          position,
+          toolPosition: positionToToolPosition(position),
+          kind,
+          locations: normalizeLocations(
+            await client.symbolLocations(file, position, kind),
+          ),
+        });
+      },
+    }),
+    csharp_workspace_symbols: tool({
+      description:
+        "Search C# workspace symbols using Roslyn workspace/symbol and return normalized file positions.",
+      args: {
+        query: tool.schema.string(),
+        limit: tool.schema.number().optional(),
+        resolve: tool.schema.boolean().optional(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const limit = getLimit(args.limit, 50, 200);
+        const symbols = (await client.workspaceSymbols(args.query)).slice(
+          0,
+          limit,
+        );
+        const resolved =
+          args.resolve === false
+            ? symbols
+            : await resolveWorkspaceSymbols(client, symbols);
+
+        return json({
+          ok: true,
+          query: args.query,
+          limit,
+          symbols: normalizeWorkspaceSymbols(resolved),
         });
       },
     }),
@@ -92,6 +159,18 @@ export const CSharpLspPlugin: Plugin = async () => ({
         });
       },
     }),
+    csharp_workspace_diagnostics: tool({
+      description:
+        "Return solution-wide Roslyn diagnostics grouped by file, preserving raw workspace diagnostic reports.",
+      args: {},
+      async execute(_args, context) {
+        const client = getClient(context);
+        return json({
+          ok: true,
+          diagnostics: await client.workspaceDiagnostics(),
+        });
+      },
+    }),
     csharp_rename_symbol: tool({
       description:
         "Rename a C# symbol using Roslyn textDocument/rename, optionally applying the returned workspace edit.",
@@ -125,6 +204,39 @@ export const CSharpLspPlugin: Plugin = async () => ({
         });
       },
     }),
+    csharp_type_hierarchy: tool({
+      description:
+        "Return Roslyn type hierarchy supertypes and/or subtypes for a C# symbol position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+        direction: tool.schema.string().optional(),
+        depth: tool.schema.number().optional(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        const direction = getHierarchyDirection(args.direction);
+        const depth = getLimit(args.depth, 1, 3);
+        const items = await client.prepareTypeHierarchy(file, position);
+
+        return json({
+          ok: true,
+          file,
+          position,
+          toolPosition: positionToToolPosition(position),
+          direction,
+          depth,
+          items: await Promise.all(
+            items.map((item) =>
+              getTypeHierarchy(client, item, direction, depth),
+            ),
+          ),
+        });
+      },
+    }),
     csharp_code_action: tool({
       description:
         "List Roslyn code actions for a C# file range and resolve workspace edits when available.",
@@ -150,6 +262,72 @@ export const CSharpLspPlugin: Plugin = async () => ({
           file,
           range,
           actions: await summarizeResolvedActions(client, actions),
+        });
+      },
+    }),
+    csharp_apply_code_action: tool({
+      description:
+        "Re-fetch, resolve, and apply a Roslyn C# code action by the id returned from csharp_code_action.",
+      args: {
+        file: tool.schema.string(),
+        actionId: tool.schema.string(),
+        startLine: tool.schema.number().optional(),
+        startColumn: tool.schema.number().optional(),
+        endLine: tool.schema.number().optional(),
+        endColumn: tool.schema.number().optional(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const text = await fs.readFile(file, "utf8");
+        const range = getRange(args, text);
+        const actions = (await client.codeActions(
+          file,
+          range,
+        )) as CodeActionOrCommand[];
+        const action = findCodeActionById(actions, args.actionId);
+
+        if (!action) {
+          return json({
+            ok: false,
+            file,
+            range,
+            actionId: args.actionId,
+            error: "No code action matched the supplied id.",
+          });
+        }
+
+        if (!isCodeAction(action)) {
+          return json({
+            ok: false,
+            file,
+            range,
+            actionId: args.actionId,
+            action,
+            error: "Matched action is a command, not an editable code action.",
+          });
+        }
+
+        const resolved = await client.resolveCodeAction(action);
+        if (!resolved.edit) {
+          return json({
+            ok: false,
+            file,
+            range,
+            actionId: args.actionId,
+            action: resolved,
+            error: "Resolved code action did not include a workspace edit.",
+          });
+        }
+
+        return json({
+          ok: true,
+          file,
+          range,
+          actionId: args.actionId,
+          title: resolved.title,
+          kind: resolved.kind,
+          applied: await applyWorkspaceEdit(resolved.edit),
         });
       },
     }),
@@ -202,15 +380,21 @@ async function summarizeResolvedActions(
   client: { resolveCodeAction(action: CodeAction): Promise<CodeAction> },
   actions: CodeActionOrCommand[],
 ) {
-  return await Promise.all(flattenCodeActions(actions).map((action) => summarizeAction(client, action)));
+  return await Promise.all(
+    flattenCodeActions(actions).map((action, index) =>
+      summarizeAction(client, String(index), action),
+    ),
+  );
 }
 
 async function summarizeAction(
   client: { resolveCodeAction(action: CodeAction): Promise<CodeAction> },
+  id: string,
   action: CodeActionOrCommand,
 ) {
   if (!isCodeAction(action)) {
     return {
+      id,
       title: action.title,
       command: action.command,
       arguments: action.arguments,
@@ -219,13 +403,15 @@ async function summarizeAction(
 
   const resolved = await resolveActionIfPossible(client, action);
   return {
+    id,
     title: resolved.title,
     kind: resolved.kind,
     diagnostics: resolved.diagnostics,
     edit: resolved.edit,
     command: resolved.command,
     data: resolved.data,
-    resolveError: "resolveError" in resolved ? resolved.resolveError : undefined,
+    resolveError:
+      "resolveError" in resolved ? resolved.resolveError : undefined,
   };
 }
 
@@ -243,16 +429,109 @@ async function resolveActionIfPossible(
   }
 }
 
-function flattenCodeActions(
-  actions: CodeActionOrCommand[],
-): CodeActionOrCommand[] {
-  return actions.flatMap((action) => {
-    const children = (action as Record<string, unknown>).children;
-    return [
-      action,
-      ...(Array.isArray(children)
-        ? flattenCodeActions(children as CodeActionOrCommand[])
-        : []),
-    ];
-  });
+type SymbolLocationKind = "definition" | "typeDefinition" | "implementation";
+type HierarchyDirection = "both" | "supertypes" | "subtypes";
+
+function getLocationKind(kind: string | undefined): SymbolLocationKind {
+  if (
+    kind === undefined ||
+    kind === "definition" ||
+    kind === "typeDefinition" ||
+    kind === "implementation"
+  ) {
+    return kind ?? "definition";
+  }
+
+  throw new Error(
+    "kind must be one of: definition, typeDefinition, implementation",
+  );
+}
+
+function getHierarchyDirection(
+  direction: string | undefined,
+): HierarchyDirection {
+  if (
+    direction === undefined ||
+    direction === "both" ||
+    direction === "supertypes" ||
+    direction === "subtypes"
+  ) {
+    return direction ?? "both";
+  }
+
+  throw new Error("direction must be one of: both, supertypes, subtypes");
+}
+
+function getLimit(value: number | undefined, fallback: number, max: number) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(Math.floor(value), 1), max);
+}
+
+async function resolveWorkspaceSymbols(
+  client: {
+    resolveWorkspaceSymbol(symbol: WorkspaceSymbol): Promise<WorkspaceSymbol>;
+  },
+  symbols: WorkspaceSymbol[],
+): Promise<WorkspaceSymbol[]> {
+  return await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        return await client.resolveWorkspaceSymbol(symbol);
+      } catch (error) {
+        return {
+          ...symbol,
+          resolveError: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }),
+  );
+}
+
+async function getTypeHierarchy(
+  client: {
+    typeHierarchySupertypes(
+      item: TypeHierarchyItem,
+    ): Promise<TypeHierarchyItem[]>;
+    typeHierarchySubtypes(
+      item: TypeHierarchyItem,
+    ): Promise<TypeHierarchyItem[]>;
+  },
+  item: TypeHierarchyItem,
+  direction: HierarchyDirection,
+  depth: number,
+  seen = new Set<string>(),
+): Promise<unknown> {
+  const normalized = normalizeTypeHierarchyItems([item])[0] ?? item;
+  const key = getTypeHierarchyKey(item);
+  if (depth <= 0 || seen.has(key)) {
+    return { item: normalized, cycle: seen.has(key) || undefined };
+  }
+
+  const nextSeen = new Set(seen);
+  nextSeen.add(key);
+  const [supertypes, subtypes] = await Promise.all([
+    direction === "subtypes" ? [] : client.typeHierarchySupertypes(item),
+    direction === "supertypes" ? [] : client.typeHierarchySubtypes(item),
+  ]);
+
+  return {
+    item: normalized,
+    supertypes: await Promise.all(
+      supertypes.map((child) =>
+        getTypeHierarchy(client, child, direction, depth - 1, nextSeen),
+      ),
+    ),
+    subtypes: await Promise.all(
+      subtypes.map((child) =>
+        getTypeHierarchy(client, child, direction, depth - 1, nextSeen),
+      ),
+    ),
+  };
+}
+
+function getTypeHierarchyKey(item: TypeHierarchyItem) {
+  return `${item.uri}:${item.selectionRange.start.line}:${item.selectionRange.start.character}:${item.name}`;
 }

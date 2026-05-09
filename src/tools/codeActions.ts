@@ -42,6 +42,29 @@ export function findMatchingCodeAction(
   );
 }
 
+export function findCodeActionById(actions: CodeActionOrCommand[], id: string) {
+  const index = Number(id);
+  if (!Number.isInteger(index) || index < 0) {
+    return undefined;
+  }
+
+  return flattenCodeActions(actions)[index];
+}
+
+export function flattenCodeActions(
+  actions: CodeActionOrCommand[],
+): CodeActionOrCommand[] {
+  return actions.flatMap((action) => {
+    const children = (action as Record<string, unknown>).children;
+    return [
+      action,
+      ...(Array.isArray(children)
+        ? flattenCodeActions(children as CodeActionOrCommand[])
+        : []),
+    ];
+  });
+}
+
 export function isCodeAction(
   action: CodeActionOrCommand,
 ): action is CodeAction {

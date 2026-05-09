@@ -17,11 +17,18 @@ export function getInitializeParams(root: string) {
         configuration: true,
         diagnostics: { refreshSupport: true },
         didChangeConfiguration: { dynamicRegistration: true },
+        symbol: {
+          dynamicRegistration: false,
+          resolveSupport: { properties: ["location"] },
+        },
       },
       textDocument: {
         synchronization: { didSave: true, dynamicRegistration: false },
         diagnostic: { dynamicRegistration: false },
         definition: { dynamicRegistration: false, linkSupport: true },
+        implementation: { dynamicRegistration: false, linkSupport: true },
+        typeDefinition: { dynamicRegistration: false, linkSupport: true },
+        typeHierarchy: { dynamicRegistration: false },
         references: { dynamicRegistration: false },
         hover: {
           dynamicRegistration: false,

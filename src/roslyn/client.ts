@@ -1,16 +1,27 @@
-import type { CodeAction, Position, Range } from "../csharp/types";
+import type {
+  CodeAction,
+  Position,
+  Range,
+  TypeHierarchyItem,
+  WorkspaceSymbol,
+} from "../csharp/types";
 import { getStableCodeActions } from "./codeActionPolling";
 import { getRoslynCommand } from "./command";
-import { getDiagnostics } from "./diagnostics";
+import { getDiagnostics, getWorkspaceDiagnostics } from "./diagnostics";
 import { DocumentStore } from "./documents";
 import { getInitializeParams } from "./initialize";
 import { handleServerRequest } from "./serverRequests";
 import { RpcConnection } from "./rpcConnection";
 
-export type SymbolLocationKind = "definition";
+export type SymbolLocationKind =
+  | "definition"
+  | "typeDefinition"
+  | "implementation";
 
 const symbolLocationMethods: Record<SymbolLocationKind, string> = {
   definition: "textDocument/definition",
+  typeDefinition: "textDocument/typeDefinition",
+  implementation: "textDocument/implementation",
 };
 
 export class RoslynLspClient {
@@ -43,6 +54,10 @@ export class RoslynLspClient {
     return getDiagnostics(this, file);
   }
 
+  workspaceDiagnostics() {
+    return getWorkspaceDiagnostics(this);
+  }
+
   async preloadDocument(file: string) {
     await this.syncDocument(file);
     await this.waitForRoslynOperations([
@@ -62,6 +77,40 @@ export class RoslynLspClient {
       textDocument: { uri: document.uri },
       position,
     });
+  }
+
+  async workspaceSymbols(query: string) {
+    await this.ensureStarted();
+    await this.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy"]);
+    const response = await this.request("workspace/symbol", { query });
+    return Array.isArray(response) ? (response as WorkspaceSymbol[]) : [];
+  }
+
+  async resolveWorkspaceSymbol(symbol: WorkspaceSymbol) {
+    return (await this.request(
+      "workspaceSymbol/resolve",
+      symbol,
+    )) as WorkspaceSymbol;
+  }
+
+  async prepareTypeHierarchy(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    await this.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy"]);
+    const response = await this.request("textDocument/prepareTypeHierarchy", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+    return Array.isArray(response) ? (response as TypeHierarchyItem[]) : [];
+  }
+
+  async typeHierarchySupertypes(item: TypeHierarchyItem) {
+    const response = await this.request("typeHierarchy/supertypes", { item });
+    return Array.isArray(response) ? (response as TypeHierarchyItem[]) : [];
+  }
+
+  async typeHierarchySubtypes(item: TypeHierarchyItem) {
+    const response = await this.request("typeHierarchy/subtypes", { item });
+    return Array.isArray(response) ? (response as TypeHierarchyItem[]) : [];
   }
 
   async references(

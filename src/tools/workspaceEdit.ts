@@ -1,10 +1,12 @@
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Position, TextEdit, WorkspaceEdit } from "../csharp/types";
 
 export async function applyWorkspaceEdit(edit: WorkspaceEdit) {
   const editsByFile = new Map<string, TextEdit[]>();
   const unsupported: unknown[] = [];
+  const resourceOperations = [];
 
   for (const [uri, edits] of Object.entries(edit.changes ?? {})) {
     addEdits(editsByFile, uri, edits);
@@ -14,7 +16,12 @@ export async function applyWorkspaceEdit(edit: WorkspaceEdit) {
     if ("textDocument" in change) {
       addEdits(editsByFile, change.textDocument.uri, change.edits);
     } else {
-      unsupported.push(change);
+      const operation = await applyResourceOperation(change);
+      if (operation) {
+        resourceOperations.push(operation);
+      } else {
+        unsupported.push(change);
+      }
     }
   }
 
@@ -29,7 +36,56 @@ export async function applyWorkspaceEdit(edit: WorkspaceEdit) {
     changedFiles.push({ file, edits: edits.length });
   }
 
-  return { changedFiles, unsupported };
+  return { changedFiles, resourceOperations, unsupported };
+}
+
+async function applyResourceOperation(change: unknown) {
+  if (typeof change !== "object" || change === null || !("kind" in change)) {
+    return undefined;
+  }
+
+  if (
+    change.kind === "create" &&
+    "uri" in change &&
+    typeof change.uri === "string"
+  ) {
+    const file = fileURLToPath(change.uri);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    try {
+      await fs.writeFile(file, "", { flag: "wx" });
+    } catch (error) {
+      if (!isFileExistsError(error)) {
+        throw error;
+      }
+    }
+    return { kind: change.kind, file };
+  }
+
+  if (
+    change.kind === "rename" &&
+    "oldUri" in change &&
+    "newUri" in change &&
+    typeof change.oldUri === "string" &&
+    typeof change.newUri === "string"
+  ) {
+    const oldFile = fileURLToPath(change.oldUri);
+    const newFile = fileURLToPath(change.newUri);
+    await fs.mkdir(path.dirname(newFile), { recursive: true });
+    await fs.rename(oldFile, newFile);
+    return { kind: change.kind, oldFile, newFile };
+  }
+
+  if (
+    change.kind === "delete" &&
+    "uri" in change &&
+    typeof change.uri === "string"
+  ) {
+    const file = fileURLToPath(change.uri);
+    await fs.rm(file, { force: true });
+    return { kind: change.kind, file };
+  }
+
+  return undefined;
 }
 
 function addEdits(
@@ -44,21 +100,40 @@ function addEdits(
 
 function applyTextEdits(text: string, edits: TextEdit[]) {
   const lineStarts = getLineStarts(text);
-  const ordered = [...edits].sort(
-    (left, right) =>
-      positionToOffset(lineStarts, right.range.start) -
-      positionToOffset(lineStarts, left.range.start),
-  );
+  const ordered = edits
+    .map((edit) => ({
+      edit,
+      start: positionToOffset(lineStarts, edit.range.start),
+      end: positionToOffset(lineStarts, edit.range.end),
+    }))
+    .sort((left, right) => right.start - left.start || right.end - left.end);
   let result = text;
+  let previousStart = Number.POSITIVE_INFINITY;
 
-  for (const edit of ordered) {
-    const starts = getLineStarts(result);
-    const start = positionToOffset(starts, edit.range.start);
-    const end = positionToOffset(starts, edit.range.end);
+  for (const { edit, start, end } of ordered) {
+    if (end < start) {
+      throw new Error(
+        "WorkspaceEdit contains an edit whose end is before start.",
+      );
+    }
+    if (end > previousStart) {
+      throw new Error("WorkspaceEdit contains overlapping text edits.");
+    }
+
     result = result.slice(0, start) + edit.newText + result.slice(end);
+    previousStart = start;
   }
 
   return result;
+}
+
+function isFileExistsError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "EEXIST"
+  );
 }
 
 function getLineStarts(text: string) {
