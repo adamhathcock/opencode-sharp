@@ -21,7 +21,7 @@ export class PendingRequests {
         reject: (error) => {
           clearTimeout(timeout);
           reject(error);
-        }
+        },
       });
     });
 

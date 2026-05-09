@@ -8,7 +8,7 @@ export type PositionArgs = {
 export function getPosition(args: PositionArgs): Position {
   return {
     line: oneBasedToZeroBased(args.line),
-    character: oneBasedToZeroBased(args.column)
+    character: oneBasedToZeroBased(args.column),
   };
 }
 

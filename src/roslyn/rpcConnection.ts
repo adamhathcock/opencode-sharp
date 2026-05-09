@@ -3,7 +3,6 @@ import type { JsonRpcMessage } from "../lsp/types";
 import { formatMessage, MessageBuffer } from "./framing";
 import { MessageLog } from "./messageLog";
 import { PendingRequests } from "./pendingRequests";
-import { recordLspUsage } from "../usage";
 
 type RequestHandler = (message: JsonRpcMessage) => unknown;
 
@@ -12,22 +11,35 @@ export class RpcConnection {
   private pending = new PendingRequests();
   private messageBuffer = new MessageBuffer();
   private log = new MessageLog();
-  private lastExit: { code: number | null; signal: NodeJS.Signals | null } | undefined;
+  private lastExit:
+    | { code: number | null; signal: NodeJS.Signals | null }
+    | undefined;
 
-  constructor(private readonly command: string, private readonly args: string[], private readonly cwd: string, private readonly handleRequest: RequestHandler) {}
+  constructor(
+    private readonly command: string,
+    private readonly args: string[],
+    private readonly cwd: string,
+    private readonly handleRequest: RequestHandler,
+  ) {}
 
   status() {
     return {
       running: this.child !== undefined && this.child.exitCode === null,
       lastExit: this.lastExit,
-      ...this.log.status()
+      ...this.log.status(),
     };
   }
 
   async start() {
-    this.child = spawn(this.command, this.args, { cwd: this.cwd, stdio: "pipe", env: { ...process.env } });
+    this.child = spawn(this.command, this.args, {
+      cwd: this.cwd,
+      stdio: "pipe",
+      env: { ...process.env },
+    });
     this.child.stdout.on("data", (chunk: Buffer) => this.handleStdout(chunk));
-    this.child.stderr.on("data", (chunk: Buffer) => this.log.appendStderr(chunk));
+    this.child.stderr.on("data", (chunk: Buffer) =>
+      this.log.appendStderr(chunk),
+    );
     this.child.on("exit", (code, signal) => this.handleExit(code, signal));
 
     await new Promise<void>((resolve, reject) => {
@@ -55,7 +67,6 @@ export class RpcConnection {
       return Promise.reject(new Error("roslyn-language-server is not running"));
     }
 
-    recordLspUsage(method);
     const { id, promise } = this.pending.create(method);
     this.write({ jsonrpc: "2.0", id, method, params });
     return promise;
@@ -83,7 +94,11 @@ export class RpcConnection {
     if (message.id !== undefined && message.method === undefined) {
       this.pending.resolve(message);
     } else if (message.id !== undefined && message.method) {
-      this.write({ jsonrpc: "2.0", id: message.id, result: this.handleRequest(message) });
+      this.write({
+        jsonrpc: "2.0",
+        id: message.id,
+        result: this.handleRequest(message),
+      });
     } else {
       this.log.capture(message);
     }
@@ -92,6 +107,8 @@ export class RpcConnection {
   private handleExit(code: number | null, signal: NodeJS.Signals | null) {
     this.lastExit = { code, signal };
     this.child = undefined;
-    this.pending.rejectAll(new Error("roslyn-language-server exited while handling a request"));
+    this.pending.rejectAll(
+      new Error("roslyn-language-server exited while handling a request"),
+    );
   }
 }

@@ -32,7 +32,9 @@ export class MessageBuffer {
         return messages;
       }
 
-      const raw = this.buffer.subarray(messageStart, messageEnd).toString("utf8");
+      const raw = this.buffer
+        .subarray(messageStart, messageEnd)
+        .toString("utf8");
       this.buffer = this.buffer.subarray(messageEnd);
       messages.push(JSON.parse(raw) as JsonRpcMessage);
     }

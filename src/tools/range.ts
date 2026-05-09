@@ -14,18 +14,18 @@ export function getRange(args: RangeArgs, text: string): Range {
     const lastLine = Math.max(lines.length - 1, 0);
     return {
       start: { line: 0, character: 0 },
-      end: { line: lastLine, character: lines[lastLine]?.length || 0 }
+      end: { line: lastLine, character: lines[lastLine]?.length || 0 },
     };
   }
 
   return {
     start: {
       line: oneBasedToZeroBased(args.startLine),
-      character: oneBasedToZeroBased(args.startColumn ?? 1)
+      character: oneBasedToZeroBased(args.startColumn ?? 1),
     },
     end: {
       line: oneBasedToZeroBased(args.endLine ?? args.startLine),
-      character: oneBasedToZeroBased(args.endColumn ?? args.startColumn ?? 1)
-    }
+      character: oneBasedToZeroBased(args.endColumn ?? args.startColumn ?? 1),
+    },
   };
 }

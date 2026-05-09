@@ -5,8 +5,16 @@ export type TextEdit = { range: Range; newText: string };
 export type WorkspaceEdit = {
   changes?: Record<string, TextEdit[]>;
   documentChanges?: Array<
-    | { textDocument: { uri: string; version?: number | null }; edits: TextEdit[] }
-    | { kind: "create" | "rename" | "delete"; uri?: string; oldUri?: string; newUri?: string }
+    | {
+        textDocument: { uri: string; version?: number | null };
+        edits: TextEdit[];
+      }
+    | {
+        kind: "create" | "rename" | "delete";
+        uri?: string;
+        oldUri?: string;
+        newUri?: string;
+      }
   >;
 };
 
@@ -39,7 +47,9 @@ export type CodeAction = {
   data?: unknown;
 };
 
-export type CodeActionOrCommand = CodeAction | { title: string; command: string; arguments?: unknown[] };
+export type CodeActionOrCommand =
+  | CodeAction
+  | { title: string; command: string; arguments?: unknown[] };
 
 export type OpenDocument = {
   uri: string;

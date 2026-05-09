@@ -7,13 +7,15 @@ export function getInitializeParams(root: string) {
     _vs_supportsVisualStudioExtensions: true,
     _vs_supportsDiagnosticRequests: true,
     rootUri: pathToFileURL(root).toString(),
-    workspaceFolders: [{ uri: pathToFileURL(root).toString(), name: path.basename(root) }],
+    workspaceFolders: [
+      { uri: pathToFileURL(root).toString(), name: path.basename(root) },
+    ],
     capabilities: {
       workspace: {
         applyEdit: true,
         workspaceFolders: true,
         configuration: true,
-        didChangeConfiguration: { dynamicRegistration: true }
+        didChangeConfiguration: { dynamicRegistration: true },
       },
       textDocument: {
         synchronization: { didSave: true, dynamicRegistration: false },
@@ -26,12 +28,21 @@ export function getInitializeParams(root: string) {
           dynamicRegistration: false,
           codeActionLiteralSupport: {
             codeActionKind: {
-              valueSet: ["", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"]
-            }
+              valueSet: [
+                "",
+                "quickfix",
+                "refactor",
+                "refactor.extract",
+                "refactor.inline",
+                "refactor.rewrite",
+                "source",
+                "source.organizeImports",
+              ],
+            },
           },
-          resolveSupport: { properties: ["edit", "command"] }
-        }
-      }
-    }
+          resolveSupport: { properties: ["edit", "command"] },
+        },
+      },
+    },
   };
 }

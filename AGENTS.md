@@ -7,13 +7,10 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 ## Project Structure
 
 - `src/index.ts` defines the opencode plugin and registers tools.
-- `src/tui.tsx` defines the TUI sidebar plugin that displays the latest C# Roslyn status snapshot.
 - `src/roslyn/` contains the Roslyn language-server sidecar client, JSON-RPC connection, initialization, document sync, diagnostics, and server request handling.
 - `src/lsp/` contains JSON-RPC/LSP wire types.
 - `src/csharp/` contains C# domain types used by tool responses.
-- `src/status/` contains shared status snapshot read/write helpers used by server and TUI plugin targets.
 - `src/tools/` contains tool-facing helpers for ranges, code actions, paths, and workspace edits.
-- `src/usage/` tracks recent plugin tool and Roslyn LSP method usage for status output.
 - `src/shared/` contains small shared utilities.
 - `dist/` contains compiled JavaScript and declaration output from TypeScript.
 - `package.json` defines the Bun/TypeScript workflow and opencode plugin dependencies.
@@ -29,7 +26,6 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 ## Current Tools
 
 - `csharp_lsp_status`: returns status for the Roslyn sidecar, including open document count, logs, stderr, and exit information.
-- `csharp_lsp_status` also writes the status snapshot consumed by the TUI sidebar plugin.
 - `csharp_lsp_shutdown`: shuts down sidecar instances and clears cached code actions.
 - `csharp_diagnostics`: pulls Roslyn diagnostics for a C# file through public and VS-internal diagnostic LSP requests.
 - `csharp_workspace_symbols`: searches Roslyn workspace symbols across loaded C# solutions/projects through `workspace/symbol`.
@@ -44,8 +40,6 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - Default arguments are `--stdio --autoLoadProjects`.
 - `OPENCODE_SHARP_ROSLYN_ARGS` can override the argument string.
 - Keep one Roslyn client per worktree through `src/state.ts`; do not spawn a process per tool call.
-- The server plugin refreshes the status snapshot after each incoming chat message through the `chat.message` hook.
-- The TUI plugin reads status snapshots from a temp-file location derived from the worktree path; do not make it call Roslyn directly.
 
 ## Development
 

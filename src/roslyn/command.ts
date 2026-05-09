@@ -8,7 +8,10 @@ export async function getRoslynCommand() {
 
   const home = process.env.HOME || process.env.USERPROFILE;
   if (home) {
-    const executable = process.platform === "win32" ? "roslyn-language-server.exe" : "roslyn-language-server";
+    const executable =
+      process.platform === "win32"
+        ? "roslyn-language-server.exe"
+        : "roslyn-language-server";
     const candidate = path.join(home, ".dotnet", "tools", executable);
     try {
       await fs.access(candidate);

@@ -32,7 +32,11 @@ export async function applyWorkspaceEdit(edit: WorkspaceEdit) {
   return { changedFiles, unsupported };
 }
 
-function addEdits(editsByFile: Map<string, TextEdit[]>, uri: string, edits: TextEdit[]) {
+function addEdits(
+  editsByFile: Map<string, TextEdit[]>,
+  uri: string,
+  edits: TextEdit[],
+) {
   const existing = editsByFile.get(uri) ?? [];
   existing.push(...edits);
   editsByFile.set(uri, existing);
@@ -40,7 +44,11 @@ function addEdits(editsByFile: Map<string, TextEdit[]>, uri: string, edits: Text
 
 function applyTextEdits(text: string, edits: TextEdit[]) {
   const lineStarts = getLineStarts(text);
-  const ordered = [...edits].sort((left, right) => positionToOffset(lineStarts, right.range.start) - positionToOffset(lineStarts, left.range.start));
+  const ordered = [...edits].sort(
+    (left, right) =>
+      positionToOffset(lineStarts, right.range.start) -
+      positionToOffset(lineStarts, left.range.start),
+  );
   let result = text;
 
   for (const edit of ordered) {
@@ -65,6 +73,7 @@ function getLineStarts(text: string) {
 }
 
 function positionToOffset(lineStarts: number[], position: Position) {
-  const lineStart = lineStarts[Math.min(position.line, lineStarts.length - 1)] ?? 0;
+  const lineStart =
+    lineStarts[Math.min(position.line, lineStarts.length - 1)] ?? 0;
   return lineStart + position.character;
 }

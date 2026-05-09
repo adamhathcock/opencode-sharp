@@ -9,7 +9,11 @@ export class MessageLog {
   }
 
   capture(message: JsonRpcMessage) {
-    if (message.method !== "window/logMessage" && message.method !== "window/showMessage" && message.method !== "$/progress") {
+    if (
+      message.method !== "window/logMessage" &&
+      message.method !== "window/showMessage" &&
+      message.method !== "$/progress"
+    ) {
       return false;
     }
 
@@ -21,7 +25,7 @@ export class MessageLog {
   status() {
     return {
       logMessages: this.messages.slice(-20),
-      stderr: this.stderr.slice(-4000)
+      stderr: this.stderr.slice(-4000),
     };
   }
 }

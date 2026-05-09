@@ -3,9 +3,19 @@ import type { Range } from "../csharp/types";
 type Request = (method: string, params: unknown) => Promise<unknown>;
 type Wait = (operations: string[]) => Promise<void>;
 
-const operations = ["Workspace", "SolutionCrawlerLegacy", "DiagnosticService", "LightBulb"];
+const operations = [
+  "Workspace",
+  "SolutionCrawlerLegacy",
+  "DiagnosticService",
+  "LightBulb",
+];
 
-export async function getStableCodeActions(uri: string, range: Range, request: Request, wait: Wait) {
+export async function getStableCodeActions(
+  uri: string,
+  range: Range,
+  request: Request,
+  wait: Wait,
+) {
   await wait(operations);
   let previousSignature: string | undefined;
   let latest: unknown[] = [];
@@ -31,21 +41,31 @@ async function requestCodeActions(uri: string, range: Range, request: Request) {
   const response = await request("textDocument/codeAction", {
     textDocument: { uri },
     range,
-    context: { diagnostics: [] }
+    context: { diagnostics: [] },
   });
 
   return Array.isArray(response) ? response : [];
 }
 
 function getCodeActionSignature(actions: unknown[]) {
-  return JSON.stringify(actions.map((action) => {
-    if (typeof action !== "object" || action === null) {
-      return action;
-    }
+  return JSON.stringify(
+    actions.map((action) => {
+      if (typeof action !== "object" || action === null) {
+        return action;
+      }
 
-    const candidate = action as { title?: unknown; kind?: unknown; command?: unknown };
-    return { title: candidate.title, kind: candidate.kind, hasCommand: candidate.command !== undefined };
-  }));
+      const candidate = action as {
+        title?: unknown;
+        kind?: unknown;
+        command?: unknown;
+      };
+      return {
+        title: candidate.title,
+        kind: candidate.kind,
+        hasCommand: candidate.command !== undefined,
+      };
+    }),
+  );
 }
 
 async function delay(milliseconds: number) {

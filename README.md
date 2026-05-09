@@ -48,17 +48,6 @@ Use the server plugin from opencode config:
 }
 ```
 
-Use the TUI sidebar plugin from TUI config:
-
-```json
-{
-  "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["opencode-sharp/tui"]
-}
-```
-
-The TUI plugin reads the latest status snapshot written by the server plugin and renders it in the session sidebar. The server plugin refreshes that snapshot when `csharp_lsp_status` runs and after each incoming chat message.
-
 Run TypeScript in watch mode:
 
 ```bash
@@ -95,7 +84,7 @@ OPENCODE_SHARP_ROSLYN_ARGS="--stdio --autoLoadProjects --logLevel Information"
 
 `csharp_lsp_status`
 
-Returns sidecar status, including whether the Roslyn process is running, open document count, recent log messages, stderr, last exit info, and recent tool/LSP usage. It also writes the status snapshot consumed by the TUI sidebar plugin.
+Returns sidecar status, including whether the Roslyn process is running, open document count, recent log messages, stderr, and last exit info.
 
 `csharp_lsp_shutdown`
 
@@ -129,23 +118,23 @@ Resolves and applies a cached code action when Roslyn returns a workspace edit. 
 
 The following Roslyn language-server features are candidates for first-class opencode-sharp tools, prioritized by usefulness to C# developers and ease of implementation in this plugin.
 
-| Priority | Feature | Usefulness | Implementation fit |
-| --- | --- | --- | --- |
-| 1 | Go to definition, declaration, and type definition | Core navigation for understanding code quickly. | Implemented as `csharp_symbol_locations` using `textDocument/definition`, `textDocument/declaration`, and `textDocument/typeDefinition`. |
-| 2 | Find references | Essential before changing APIs, renaming symbols, or deleting code. | Implemented as `csharp_references` using `textDocument/references`. |
-| 3 | Rename symbol | High-value Roslyn-backed refactoring with semantic correctness. | Medium-easy: use `textDocument/prepareRename` and `textDocument/rename`, then apply the returned `WorkspaceEdit`. |
-| 4 | Hover info | Exposes type information, signatures, XML docs, and nullable context. | Easy: use `textDocument/hover` and return the raw or lightly normalized hover contents. |
-| 5 | Document symbols | Gives a fast outline of classes, methods, properties, and fields in a file. | Easy: use `textDocument/documentSymbol`; complements the existing workspace symbol search. |
-| 6 | Signature help | Useful when editing method calls or generating argument lists. | Easy-medium: use `textDocument/signatureHelp` with a file position. |
-| 7 | Implementation lookup | Valuable for interfaces, abstract members, and inheritance-heavy code. | Easy: use `textDocument/implementation`. |
-| 8 | Formatting | Practical cleanup after generated edits. | Medium: use `textDocument/formatting` or `textDocument/rangeFormatting`, then apply returned edits. |
-| 9 | Organize imports | Common cleanup after adding, moving, or generating code. | Medium-low effort: already available through code actions, but useful as a dedicated convenience tool. |
-| 10 | Completion | Useful in editors, but can be noisy for agent workflows. | Medium: use `textDocument/completion` and optionally `completionItem/resolve`; needs filtering to be useful. |
-| 11 | Inlay hints | Helps explain inferred types and parameter names. | Medium: use `textDocument/inlayHint`; best as a read-only understanding tool. |
-| 12 | Call hierarchy | Useful for impact analysis and tracing execution flow. | Medium: use `textDocument/prepareCallHierarchy`, incoming calls, and outgoing calls. |
-| 13 | Semantic tokens | Mostly editor-facing, with limited direct value as a tool response. | Medium-hard: useful only if converted into higher-level analysis. |
-| 14 | Folding and selection ranges | Editor convenience features. | Easy but low priority for opencode-sharp. |
-| 15 | Document highlights | Shows local symbol usage near the cursor. | Easy but mostly superseded by find references. |
+| Priority | Feature                                            | Usefulness                                                                  | Implementation fit                                                                                                                       |
+| -------- | -------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1        | Go to definition, declaration, and type definition | Core navigation for understanding code quickly.                             | Implemented as `csharp_symbol_locations` using `textDocument/definition`, `textDocument/declaration`, and `textDocument/typeDefinition`. |
+| 2        | Find references                                    | Essential before changing APIs, renaming symbols, or deleting code.         | Implemented as `csharp_references` using `textDocument/references`.                                                                      |
+| 3        | Rename symbol                                      | High-value Roslyn-backed refactoring with semantic correctness.             | Medium-easy: use `textDocument/prepareRename` and `textDocument/rename`, then apply the returned `WorkspaceEdit`.                        |
+| 4        | Hover info                                         | Exposes type information, signatures, XML docs, and nullable context.       | Easy: use `textDocument/hover` and return the raw or lightly normalized hover contents.                                                  |
+| 5        | Document symbols                                   | Gives a fast outline of classes, methods, properties, and fields in a file. | Easy: use `textDocument/documentSymbol`; complements the existing workspace symbol search.                                               |
+| 6        | Signature help                                     | Useful when editing method calls or generating argument lists.              | Easy-medium: use `textDocument/signatureHelp` with a file position.                                                                      |
+| 7        | Implementation lookup                              | Valuable for interfaces, abstract members, and inheritance-heavy code.      | Easy: use `textDocument/implementation`.                                                                                                 |
+| 8        | Formatting                                         | Practical cleanup after generated edits.                                    | Medium: use `textDocument/formatting` or `textDocument/rangeFormatting`, then apply returned edits.                                      |
+| 9        | Organize imports                                   | Common cleanup after adding, moving, or generating code.                    | Medium-low effort: already available through code actions, but useful as a dedicated convenience tool.                                   |
+| 10       | Completion                                         | Useful in editors, but can be noisy for agent workflows.                    | Medium: use `textDocument/completion` and optionally `completionItem/resolve`; needs filtering to be useful.                             |
+| 11       | Inlay hints                                        | Helps explain inferred types and parameter names.                           | Medium: use `textDocument/inlayHint`; best as a read-only understanding tool.                                                            |
+| 12       | Call hierarchy                                     | Useful for impact analysis and tracing execution flow.                      | Medium: use `textDocument/prepareCallHierarchy`, incoming calls, and outgoing calls.                                                     |
+| 13       | Semantic tokens                                    | Mostly editor-facing, with limited direct value as a tool response.         | Medium-hard: useful only if converted into higher-level analysis.                                                                        |
+| 14       | Folding and selection ranges                       | Editor convenience features.                                                | Easy but low priority for opencode-sharp.                                                                                                |
+| 15       | Document highlights                                | Shows local symbol usage near the cursor.                                   | Easy but mostly superseded by find references.                                                                                           |
 
 Recommended implementation order:
 
@@ -164,13 +153,10 @@ Implemented priority 1 and 2 notes:
 ## Source Layout
 
 - `src/index.ts`: opencode plugin entrypoint and tool registration.
-- `src/tui.tsx`: TUI plugin entrypoint for the sidebar status panel.
 - `src/roslyn/`: Roslyn sidecar client, JSON-RPC transport, initialization, diagnostics, document sync, and request handling.
 - `src/lsp/`: JSON-RPC/LSP wire types.
 - `src/csharp/`: C# domain types used by the plugin.
-- `src/status/`: status snapshot persistence shared by the server and TUI plugins.
 - `src/tools/`: tool helper logic for code actions, ranges, paths, and workspace edits.
-- `src/usage/`: in-memory usage tracking for plugin tools and Roslyn LSP methods.
 - `src/shared/`: small shared utilities.
 - `dist/`: compiled output produced by `bun run build`.
 

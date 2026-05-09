@@ -27,7 +27,14 @@ export class DocumentStore {
     if (!existing) {
       const document = { uri, text, version: 1 };
       this.openDocuments.set(uri, document);
-      this.notify("textDocument/didOpen", { textDocument: { uri, languageId: "csharp", version: document.version, text } });
+      this.notify("textDocument/didOpen", {
+        textDocument: {
+          uri,
+          languageId: "csharp",
+          version: document.version,
+          text,
+        },
+      });
       return document;
     }
 
@@ -35,7 +42,14 @@ export class DocumentStore {
       existing.text = text;
       existing.version += 1;
       this.notify("textDocument/didClose", { textDocument: { uri } });
-      this.notify("textDocument/didOpen", { textDocument: { uri, languageId: "csharp", version: existing.version, text } });
+      this.notify("textDocument/didOpen", {
+        textDocument: {
+          uri,
+          languageId: "csharp",
+          version: existing.version,
+          text,
+        },
+      });
     }
 
     return existing;

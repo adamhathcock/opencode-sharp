@@ -6,19 +6,27 @@ export const diagnosticCategories = [
   "syntax",
   "DocumentCompilerSemantic",
   "DocumentAnalyzerSyntax",
-  "DocumentAnalyzerSemantic"
+  "DocumentAnalyzerSemantic",
 ];
 
 export async function getDiagnostics(client: RoslynLspClient, file: string) {
   const document = await client.syncDocument(file);
-  await client.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy", "DiagnosticService"]);
+  await client.waitForRoslynOperations([
+    "Workspace",
+    "SolutionCrawlerLegacy",
+    "DiagnosticService",
+  ]);
 
   const reports = [];
   const vsReports = [];
   const diagnostics = [];
 
   for (const category of diagnosticCategories) {
-    const publicReport = await requestPublicDiagnostics(client, document.uri, category);
+    const publicReport = await requestPublicDiagnostics(
+      client,
+      document.uri,
+      category,
+    );
     reports.push(publicReport.report);
     diagnostics.push(...publicReport.diagnostics);
 
@@ -30,29 +38,51 @@ export async function getDiagnostics(client: RoslynLspClient, file: string) {
   return { reports, vsReports, diagnostics };
 }
 
-async function requestPublicDiagnostics(client: RoslynLspClient, uri: string, category: string) {
+async function requestPublicDiagnostics(
+  client: RoslynLspClient,
+  uri: string,
+  category: string,
+) {
   try {
     const response = await client.request("textDocument/diagnostic", {
       textDocument: { uri },
-      identifier: category
+      identifier: category,
     });
-    const items = isRecord(response) && Array.isArray(response.items) ? response.items : [];
-    return { report: { category, response }, diagnostics: items.map((diagnostic) => withCategory(category, diagnostic)) };
+    const items =
+      isRecord(response) && Array.isArray(response.items) ? response.items : [];
+    return {
+      report: { category, response },
+      diagnostics: items.map((diagnostic) =>
+        withCategory(category, diagnostic),
+      ),
+    };
   } catch (error) {
-    return { report: { category, error: getErrorMessage(error) }, diagnostics: [] };
+    return {
+      report: { category, error: getErrorMessage(error) },
+      diagnostics: [],
+    };
   }
 }
 
-async function requestVsDiagnostics(client: RoslynLspClient, uri: string, category: string) {
+async function requestVsDiagnostics(
+  client: RoslynLspClient,
+  uri: string,
+  category: string,
+) {
   try {
     const response = await client.request("textdocument/_vs_diagnostic", {
       _vs_textDocument: { uri },
-      _vs_queryingDiagnosticKind: category
+      _vs_queryingDiagnosticKind: category,
     });
-    const diagnostics = getReportDiagnostics(response).map((diagnostic) => withCategory(category, diagnostic));
+    const diagnostics = getReportDiagnostics(response).map((diagnostic) =>
+      withCategory(category, diagnostic),
+    );
     return { report: { category, response }, diagnostics };
   } catch (error) {
-    return { report: { category, error: getErrorMessage(error) }, diagnostics: [] };
+    return {
+      report: { category, error: getErrorMessage(error) },
+      diagnostics: [],
+    };
   }
 }
 
@@ -75,7 +105,7 @@ function getReportDiagnostics(response: unknown) {
 }
 
 function withCategory(category: string, diagnostic: unknown) {
-  return { category, ...diagnostic as Diagnostic };
+  return { category, ...(diagnostic as Diagnostic) };
 }
 
 function getErrorMessage(error: unknown) {

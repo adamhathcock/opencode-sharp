@@ -7,18 +7,23 @@ import { getInitializeParams } from "./initialize";
 import { handleServerRequest } from "./serverRequests";
 import { RpcConnection } from "./rpcConnection";
 
-export type SymbolLocationKind = "definition" | "declaration" | "typeDefinition";
+export type SymbolLocationKind =
+  | "definition"
+  | "declaration"
+  | "typeDefinition";
 
 const symbolLocationMethods: Record<SymbolLocationKind, string> = {
   definition: "textDocument/definition",
   declaration: "textDocument/declaration",
-  typeDefinition: "textDocument/typeDefinition"
+  typeDefinition: "textDocument/typeDefinition",
 };
 
 export class RoslynLspClient {
   private connection: RpcConnection | undefined;
   private initialized: Promise<void> | undefined;
-  private documents = new DocumentStore((method, params) => this.notify(method, params));
+  private documents = new DocumentStore((method, params) =>
+    this.notify(method, params),
+  );
 
   constructor(private readonly root: string) {}
 
@@ -27,7 +32,7 @@ export class RoslynLspClient {
       root: this.root,
       initialized: this.initialized !== undefined,
       openDocuments: this.documents.size,
-      ...this.connection?.status()
+      ...this.connection?.status(),
     };
   }
 
@@ -43,7 +48,11 @@ export class RoslynLspClient {
 
   async preloadDocument(file: string) {
     await this.syncDocument(file);
-    await this.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy", "DiagnosticService"]);
+    await this.waitForRoslynOperations([
+      "Workspace",
+      "SolutionCrawlerLegacy",
+      "DiagnosticService",
+    ]);
   }
 
   async workspaceSymbols(query: string) {
@@ -51,27 +60,40 @@ export class RoslynLspClient {
     return Array.isArray(response) ? response : [];
   }
 
-  async symbolLocations(file: string, position: Position, kind: SymbolLocationKind) {
+  async symbolLocations(
+    file: string,
+    position: Position,
+    kind: SymbolLocationKind,
+  ) {
     const document = await this.syncDocument(file);
     return await this.request(symbolLocationMethods[kind], {
       textDocument: { uri: document.uri },
-      position
+      position,
     });
   }
 
-  async references(file: string, position: Position, includeDeclaration: boolean) {
+  async references(
+    file: string,
+    position: Position,
+    includeDeclaration: boolean,
+  ) {
     const document = await this.syncDocument(file);
     const response = await this.request("textDocument/references", {
       textDocument: { uri: document.uri },
       position,
-      context: { includeDeclaration }
+      context: { includeDeclaration },
     });
     return Array.isArray(response) ? response : [];
   }
 
   async codeActions(file: string, range: Range) {
     const document = await this.syncDocument(file);
-    return await getStableCodeActions(document.uri, range, (method, params) => this.request(method, params), (operations) => this.waitForRoslynOperations(operations));
+    return await getStableCodeActions(
+      document.uri,
+      range,
+      (method, params) => this.request(method, params),
+      (operations) => this.waitForRoslynOperations(operations),
+    );
   }
 
   async resolveCodeAction(action: CodeAction) {
@@ -79,7 +101,7 @@ export class RoslynLspClient {
       return action;
     }
 
-    return await this.request("codeAction/resolve", action) as CodeAction;
+    return (await this.request("codeAction/resolve", action)) as CodeAction;
   }
 
   async syncDocument(file: string) {
@@ -113,8 +135,15 @@ export class RoslynLspClient {
 
   private async start() {
     const command = await getRoslynCommand();
-    const args = (process.env.OPENCODE_SHARP_ROSLYN_ARGS || "--stdio --autoLoadProjects").split(" ").map((arg) => arg.trim()).filter(Boolean);
-    this.connection = new RpcConnection(command, args, this.root, (message) => handleServerRequest(this.root, message));
+    const args = (
+      process.env.OPENCODE_SHARP_ROSLYN_ARGS || "--stdio --autoLoadProjects"
+    )
+      .split(" ")
+      .map((arg) => arg.trim())
+      .filter(Boolean);
+    this.connection = new RpcConnection(command, args, this.root, (message) =>
+      handleServerRequest(this.root, message),
+    );
     await this.connection.start();
     await this.connection.request("initialize", getInitializeParams(this.root));
     this.connection.notify("initialized", {});
