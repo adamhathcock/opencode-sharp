@@ -86,47 +86,51 @@ OPENCODE_SHARP_ROSLYN_ARGS="--stdio --autoLoadProjects --logLevel Information"
 
 `csharp_diagnostics`
 
-Pulls diagnostics for a C# file from Roslyn. The tool currently queries both public `textDocument/diagnostic` and VS-internal `textdocument/_vs_diagnostic` methods for compiler and analyzer categories.
+Pulls diagnostics for a C# file from Roslyn. The tool queries Roslyn diagnostic endpoints and returns Roslyn's response without replacing it with `dotnet build` output.
+
+`csharp_workspace_diagnostics`
+
+Requests workspace diagnostics through `workspace/diagnostic` when Roslyn supports it. Unsupported-method errors are returned as tool errors.
 
 `csharp_workspace_symbols`
 
-Searches symbols across Roslyn's loaded workspace using `workspace/symbol`. Results depend on the sidecar successfully loading the solution/projects through `--autoLoadProjects`; empty Roslyn results are returned as-is.
+Searches symbols across Roslyn's loaded workspace using `workspace/symbol`. Results depend on the sidecar successfully loading the solution or projects.
 
 `csharp_symbol_locations`
 
-Finds definition-like locations for a C# symbol position using Roslyn. The `kind` argument accepts `definition`, `typeDefinition`, `implementation`, or `all`; line and column inputs are one-based and converted to LSP zero-based positions internally. Returned locations include one-based `position` values that can be passed directly to other opencode-sharp tools.
-
-`csharp_hover`
-
-Returns Roslyn hover/type information for a C# file position. This is useful after `csharp_symbol_locations` returns a target `file` and `position`.
-
-`csharp_document_symbols`
-
-Returns Roslyn document symbols for a C# file, giving a semantic outline of types and members.
-
-`csharp_prepare_rename`
-
-Checks whether Roslyn can rename the C# symbol at a file position and returns the raw `prepareRename` result.
-
-`csharp_rename`
-
-Renames a C# symbol through Roslyn's semantic rename API. By default it returns the Roslyn `WorkspaceEdit`; pass `apply: true` to apply supported text edits to files.
+Finds symbol locations from a C# file position. The `kind` argument accepts `definition`, `typeDefinition`, `implementation`, or `all`.
 
 `csharp_references`
 
-Finds references for a C# symbol position using Roslyn's `textDocument/references`. The `includeDeclaration` argument defaults to `true`; line and column inputs are one-based and converted to LSP zero-based positions internally.
+Finds references for a symbol position using `textDocument/references`. The `includeDeclaration` argument defaults to `true`.
+
+`csharp_hover`
+
+Returns hover/type information for a C# file position, including the Roslyn hover payload.
+
+`csharp_document_symbols`
+
+Returns a semantic outline for a C# file using `textDocument/documentSymbol`.
+
+`csharp_prepare_rename`
+
+Checks whether Roslyn can rename the symbol at a C# file position.
+
+`csharp_rename`
+
+Renames a C# symbol through Roslyn semantic rename. By default it returns the Roslyn `WorkspaceEdit`; pass `apply: true` to apply supported edits.
 
 `csharp_code_actions`
 
-Lists Roslyn code actions for a C# file range. Line and column inputs are one-based for agent friendliness and converted to LSP zero-based positions internally. Returned actions include IDs that can be passed to `csharp_apply_code_action`.
+Lists Roslyn quick fixes and refactorings for a C# file range. Returned actions include IDs for `csharp_apply_code_action`.
 
 `csharp_apply_code_action`
 
-Resolves and applies a cached code action when Roslyn returns a workspace edit. Command-only actions are reported as unsupported for now.
+Resolves and applies a cached code action when Roslyn returns a workspace edit. Command-only actions are reported as unsupported.
 
 `csharp_organize_imports`
 
-Finds Roslyn's `source.organizeImports` code action for a C# file. By default it returns the matching action summary; pass `apply: true` to apply the resulting workspace edit.
+Finds Roslyn's `source.organizeImports` code action for a C# file. By default it returns the matching action summary; pass `apply: true` to apply it.
 
 `csharp_signature_help`
 
@@ -134,66 +138,38 @@ Returns Roslyn signature help at a C# file position, including active signature 
 
 `csharp_inlay_hints`
 
-Returns Roslyn inlay hints for a C# file or optional range. This is useful for inferred types and parameter-name hints.
+Returns Roslyn inlay hints for a C# file or optional range, including inferred type and parameter-name hints when available.
 
 `csharp_completion`
 
 Returns compact Roslyn completion results at a C# file position. Use `maxResults` to limit output size and `triggerCharacter` for trigger-character completion.
 
-`csharp_workspace_diagnostics`
+## What Should Be Implemented
 
-Requests Roslyn workspace diagnostics through `workspace/diagnostic` when the server supports it. Unsupported-method errors are surfaced as tool errors rather than replaced with CLI fallback diagnostics.
+`csharp_format_document`
 
-## Roslyn Feature Priorities
+Format an entire C# file using `textDocument/formatting` and optionally apply the returned text edits.
 
-The following Roslyn language-server features are candidates for first-class opencode-sharp tools, prioritized by usefulness to C# developers and ease of implementation in this plugin.
+`csharp_format_range`
 
-| Priority | Feature                                               | Usefulness                                                                  | Implementation fit                                                                                                                          |
-| -------- | ----------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1        | Go to definition, type definition, and implementation | Core navigation for understanding code quickly.                             | Implemented as `csharp_symbol_locations` using `textDocument/definition`, `textDocument/typeDefinition`, and `textDocument/implementation`. |
-| 2        | Find references                                       | Essential before changing APIs, renaming symbols, or deleting code.         | Implemented as `csharp_references` using `textDocument/references`.                                                                         |
-| 3        | Rename symbol                                         | High-value Roslyn-backed refactoring with semantic correctness.             | Implemented as `csharp_prepare_rename` and `csharp_rename` using `textDocument/prepareRename` and `textDocument/rename`.                    |
-| 4        | Hover info                                            | Exposes type information, signatures, XML docs, and nullable context.       | Implemented as `csharp_hover` using `textDocument/hover`.                                                                                   |
-| 5        | Document symbols                                      | Gives a fast outline of classes, methods, properties, and fields in a file. | Implemented as `csharp_document_symbols` using `textDocument/documentSymbol`.                                                               |
-| 6        | Signature help                                        | Useful when editing method calls or generating argument lists.              | Implemented as `csharp_signature_help` using `textDocument/signatureHelp`.                                                                  |
-| 7        | Implementation lookup                                 | Valuable for interfaces, abstract members, and inheritance-heavy code.      | Implemented through `csharp_symbol_locations` with `kind: "implementation"`.                                                                |
-| 8        | Formatting                                            | Practical cleanup after generated edits.                                    | Medium: use `textDocument/formatting` or `textDocument/rangeFormatting`, then apply returned edits.                                         |
-| 9        | Organize imports                                      | Common cleanup after adding, moving, or generating code.                    | Implemented as `csharp_organize_imports` using Roslyn code actions.                                                                         |
-| 10       | Completion                                            | Useful in editors, but can be noisy for agent workflows.                    | Implemented as `csharp_completion` using filtered `textDocument/completion` results.                                                        |
-| 11       | Inlay hints                                           | Helps explain inferred types and parameter names.                           | Implemented as `csharp_inlay_hints` using `textDocument/inlayHint`.                                                                         |
-| 12       | Call hierarchy                                        | Useful for impact analysis and tracing execution flow.                      | Not currently exposed by the tested Roslyn server; `textDocument/prepareCallHierarchy` returns method-not-found.                            |
-| 13       | Semantic tokens                                       | Mostly editor-facing, with limited direct value as a tool response.         | Medium-hard: useful only if converted into higher-level analysis.                                                                           |
-| 14       | Folding and selection ranges                          | Editor convenience features.                                                | Easy but low priority for opencode-sharp.                                                                                                   |
-| 15       | Document highlights                                   | Shows local symbol usage near the cursor.                                   | Easy but mostly superseded by find references.                                                                                              |
+Format a selected C# range using `textDocument/rangeFormatting` and optionally apply the returned text edits.
 
-Recommended implementation order:
+`csharp_document_highlights`
 
-1. Add navigation tools first: definition, type definition, implementation, and references are implemented.
-2. Add refactoring and cleanup tools next: rename, code actions, and organize imports are implemented; formatting remains a possible future candidate.
-3. Add richer analysis tools after that: hover, document symbols, signature help, inlay hints, and filtered completion are implemented.
-4. Treat semantic tokens, folding, selection ranges, and document highlights as lower priority unless a concrete opencode workflow needs them.
+Return local symbol highlights near a C# file position using `textDocument/documentHighlight`. This is lower priority than references but useful for local reasoning.
 
-Implemented priority 1 and 2 notes:
+`csharp_selection_ranges`
 
-- `src/tools/position.ts` centralizes one-based tool input conversion to LSP zero-based positions.
-- `src/tools/locations.ts` normalizes Roslyn `Location` and `LocationLink` responses into tool-friendly URI, file, range, and one-based position objects.
-- `src/roslyn/client.ts` exposes focused wrappers for symbol locations, references, hover, rename, document symbols, code actions, signature help, inlay hints, completion, and workspace diagnostics.
-- `src/index.ts` registers Roslyn-backed tools for C# navigation, understanding, rename, code-action, cleanup, completion, and diagnostic workflows.
+Return syntax-aware selection ranges using `textDocument/selectionRange` if a concrete opencode workflow needs structured expansion around a cursor position.
 
-## Source Layout
+`csharp_folding_ranges`
 
-- `src/index.ts`: opencode plugin entrypoint and tool registration.
-- `src/roslyn/`: Roslyn sidecar client, JSON-RPC transport, initialization, diagnostics, document sync, and request handling.
-- `src/lsp/`: JSON-RPC/LSP wire types.
-- `src/csharp/`: C# domain types used by the plugin.
-- `src/tools/`: tool helper logic for code actions, ranges, paths, and workspace edits.
-- `src/shared/`: small shared utilities.
-- `dist/`: compiled output produced by `bun run build`.
+Return folding ranges using `textDocument/foldingRange` if file-outline workflows need collapsible regions beyond document symbols.
 
-## Notes For Agents
+`csharp_semantic_tokens`
 
-- Keep tool outputs structured and concise.
-- Do not add `dotnet build` diagnostics fallbacks unless explicitly requested.
-- Prefer surfacing raw Roslyn responses or errors when behavior is unclear.
-- Keep files small and split by responsibility using the existing subfolders.
-- Run `bun run build` after TypeScript changes.
+Expose semantic token data only if it is converted into higher-level, tool-friendly analysis. Raw semantic tokens are mostly editor-facing.
+
+`csharp_call_hierarchy`
+
+Revisit call hierarchy if the Roslyn server exposes `textDocument/prepareCallHierarchy`. It has not been available in the tested server behavior.

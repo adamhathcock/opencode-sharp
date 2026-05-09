@@ -34,6 +34,11 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - `csharp_prepare_rename` and `csharp_rename`: prepare and perform Roslyn semantic rename.
 - `csharp_code_actions`: lists Roslyn code actions for a file range and caches returned actions by ID.
 - `csharp_apply_code_action`: resolves and applies a cached Roslyn code action when it contains a workspace edit.
+- `csharp_organize_imports`: finds and optionally applies Roslyn's organize imports code action.
+- `csharp_signature_help`: returns method call signature and active parameter information for a C# file position.
+- `csharp_inlay_hints`: returns Roslyn inlay hints for a C# file or range.
+- `csharp_completion`: returns compact Roslyn completion results for a C# file position.
+- `csharp_workspace_diagnostics`: requests Roslyn workspace diagnostics when the server supports it.
 
 ## Roslyn Sidecar
 
