@@ -301,13 +301,18 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
           file,
           range,
         )) as CodeActionOrCommand[];
-        const action = actions.find(
-          (candidate) =>
-            isCodeAction(candidate) &&
-            candidate.kind === "source.organizeImports",
+        const action = flattenCodeActions(actions).find(
+          isOrganizeImportsAction,
         );
         if (!action) {
-          return json({ ok: true, file, found: false, actions: [] });
+          return json({
+            ok: true,
+            file,
+            found: false,
+            actions: actions.map((action, index) =>
+              summarizeCodeAction(`candidate-${index + 1}`, action),
+            ),
+          });
         }
 
         const id = cacheAction(client, action, file, range);
@@ -507,4 +512,41 @@ function getCompletionItems(response: unknown): unknown[] {
   }
 
   return [];
+}
+
+function flattenCodeActions(
+  actions: CodeActionOrCommand[],
+): CodeActionOrCommand[] {
+  return actions.flatMap((action) => {
+    const children = (action as Record<string, unknown>).children;
+    return [
+      action,
+      ...(Array.isArray(children)
+        ? flattenCodeActions(children as CodeActionOrCommand[])
+        : []),
+    ];
+  });
+}
+
+function isOrganizeImportsAction(
+  action: CodeActionOrCommand,
+): action is CodeActionOrCommand {
+  if (!isCodeAction(action)) {
+    return false;
+  }
+
+  if (action.kind === "source.organizeImports") {
+    return true;
+  }
+
+  if (!isRecord(action.data)) {
+    return false;
+  }
+
+  const customTags = action.data.CustomTags;
+  return (
+    (Array.isArray(customTags) && customTags.includes("OrganizeImports")) ||
+    action.title === "Sort Usings" ||
+    action.title === "Remove unnecessary usings"
+  );
 }
