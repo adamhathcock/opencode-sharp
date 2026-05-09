@@ -2,7 +2,7 @@
 
 `opencode-sharp` is an opencode plugin that adds focused C# tools backed by `roslyn-language-server`.
 
-opencode already has built-in C# LSP support. This plugin is intended to expose Roslyn capabilities that are not currently convenient as first-class opencode tools, such as Roslyn diagnostic pulls and code actions.
+opencode already has built-in C# LSP support. This plugin is intended to expose Roslyn capabilities that are not currently convenient as first-class opencode tools, such as Roslyn diagnostic pulls, workspace symbol search, implementation lookup, and code actions.
 
 ## Status
 
@@ -88,9 +88,21 @@ OPENCODE_SHARP_ROSLYN_ARGS="--stdio --autoLoadProjects --logLevel Information"
 
 Pulls diagnostics for a C# file from Roslyn. The tool queries Roslyn diagnostic endpoints and returns Roslyn's response without replacing it with `dotnet build` output.
 
+`csharp_workspace_diagnostics`
+
+Pulls solution-wide diagnostics from Roslyn workspace diagnostic endpoints and groups normalized diagnostics by file. If Roslyn returns no workspace diagnostics, the tool returns that response rather than falling back to `dotnet build`.
+
 `csharp_symbol_context`
 
 Returns hover, definition, and document symbols for a C# file position. This is the best first proof tool when inspecting an unknown C# symbol.
+
+`csharp_symbol_locations`
+
+Returns normalized Roslyn symbol locations for a file position. Supported `kind` values are `definition`, `typeDefinition`, and `implementation`; `definition` is the default.
+
+`csharp_workspace_symbols`
+
+Searches C# symbols across the loaded Roslyn workspace using `workspace/symbol` and returns normalized file/position data. The tool does not call `workspaceSymbol/resolve` because the current Roslyn sidecar does not support it.
 
 `csharp_find_references`
 
@@ -102,11 +114,24 @@ Renames a C# symbol through Roslyn semantic rename. By default it returns the Ro
 
 `csharp_code_action`
 
-Lists Roslyn quick fixes and refactorings for a C# file range. Code actions are resolved when possible so returned workspace edits can be applied explicitly.
+Lists Roslyn quick fixes and refactorings for a C# file range. Code actions are resolved when possible and include stable IDs for use with `csharp_apply_code_action`.
+
+`csharp_apply_code_action`
+
+Re-fetches Roslyn code actions for a file range, resolves the selected action by ID, applies its workspace edit, and reports changed files. If the selected action is command-only or resolves without an edit, the tool reports that explicitly instead of pretending it applied.
 
 `csharp_apply_workspace_edit`
 
 Applies an LSP `WorkspaceEdit` returned by Roslyn tools and reports changed files plus unsupported operations.
+
+## Known Unsupported Roslyn Methods
+
+The current Roslyn sidecar does not support these LSP methods, so this plugin does not expose tools that depend on them:
+
+- `workspaceSymbol/resolve`
+- `textDocument/prepareTypeHierarchy`
+- `typeHierarchy/supertypes`
+- `typeHierarchy/subtypes`
 
 ## What Should Be Implemented
 
