@@ -9,13 +9,13 @@ import { RpcConnection } from "./rpcConnection";
 
 export type SymbolLocationKind =
   | "definition"
-  | "declaration"
-  | "typeDefinition";
+  | "typeDefinition"
+  | "implementation";
 
 const symbolLocationMethods: Record<SymbolLocationKind, string> = {
   definition: "textDocument/definition",
-  declaration: "textDocument/declaration",
   typeDefinition: "textDocument/typeDefinition",
+  implementation: "textDocument/implementation",
 };
 
 export class RoslynLspClient {
@@ -84,6 +84,39 @@ export class RoslynLspClient {
       context: { includeDeclaration },
     });
     return Array.isArray(response) ? response : [];
+  }
+
+  async hover(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    return await this.request("textDocument/hover", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+  }
+
+  async documentSymbols(file: string) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/documentSymbol", {
+      textDocument: { uri: document.uri },
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async prepareRename(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    return await this.request("textDocument/prepareRename", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+  }
+
+  async rename(file: string, position: Position, newName: string) {
+    const document = await this.syncDocument(file);
+    return await this.request("textDocument/rename", {
+      textDocument: { uri: document.uri },
+      position,
+      newName,
+    });
   }
 
   async codeActions(file: string, range: Range) {

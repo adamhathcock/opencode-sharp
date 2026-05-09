@@ -21,9 +21,18 @@ export function getInitializeParams(root: string) {
         synchronization: { didSave: true, dynamicRegistration: false },
         diagnostic: { dynamicRegistration: false },
         definition: { dynamicRegistration: false, linkSupport: true },
-        declaration: { dynamicRegistration: false, linkSupport: true },
         typeDefinition: { dynamicRegistration: false, linkSupport: true },
+        implementation: { dynamicRegistration: false, linkSupport: true },
         references: { dynamicRegistration: false },
+        hover: { dynamicRegistration: false, contentFormat: ["markdown", "plaintext"] },
+        documentSymbol: {
+          dynamicRegistration: false,
+          hierarchicalDocumentSymbolSupport: true,
+        },
+        rename: {
+          dynamicRegistration: false,
+          prepareSupport: true,
+        },
         codeAction: {
           dynamicRegistration: false,
           codeActionLiteralSupport: {

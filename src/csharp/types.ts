@@ -38,6 +38,24 @@ export type LocationLink = {
   originSelectionRange?: Range;
 };
 
+export type DocumentSymbol = {
+  name: string;
+  detail?: string;
+  kind: number;
+  deprecated?: boolean;
+  range: Range;
+  selectionRange: Range;
+  children?: DocumentSymbol[];
+};
+
+export type SymbolInformation = {
+  name: string;
+  kind: number;
+  deprecated?: boolean;
+  location: Location;
+  containerName?: string;
+};
+
 export type CodeAction = {
   title: string;
   kind?: string;

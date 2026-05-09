@@ -94,7 +94,23 @@ Searches symbols across Roslyn's loaded workspace using `workspace/symbol`. Resu
 
 `csharp_symbol_locations`
 
-Finds definition-like locations for a C# symbol position using Roslyn. The `kind` argument accepts `definition`, `declaration`, `typeDefinition`, or `all`; line and column inputs are one-based and converted to LSP zero-based positions internally.
+Finds definition-like locations for a C# symbol position using Roslyn. The `kind` argument accepts `definition`, `typeDefinition`, `implementation`, or `all`; line and column inputs are one-based and converted to LSP zero-based positions internally. Returned locations include one-based `position` values that can be passed directly to other opencode-sharp tools.
+
+`csharp_hover`
+
+Returns Roslyn hover/type information for a C# file position. This is useful after `csharp_symbol_locations` returns a target `file` and `position`.
+
+`csharp_document_symbols`
+
+Returns Roslyn document symbols for a C# file, giving a semantic outline of types and members.
+
+`csharp_prepare_rename`
+
+Checks whether Roslyn can rename the C# symbol at a file position and returns the raw `prepareRename` result.
+
+`csharp_rename`
+
+Renames a C# symbol through Roslyn's semantic rename API. By default it returns the Roslyn `WorkspaceEdit`; pass `apply: true` to apply supported text edits to files.
 
 `csharp_references`
 
@@ -114,35 +130,35 @@ The following Roslyn language-server features are candidates for first-class ope
 
 | Priority | Feature                                            | Usefulness                                                                  | Implementation fit                                                                                                                       |
 | -------- | -------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1        | Go to definition, declaration, and type definition | Core navigation for understanding code quickly.                             | Implemented as `csharp_symbol_locations` using `textDocument/definition`, `textDocument/declaration`, and `textDocument/typeDefinition`. |
+| 1        | Go to definition, type definition, and implementation | Core navigation for understanding code quickly.                          | Implemented as `csharp_symbol_locations` using `textDocument/definition`, `textDocument/typeDefinition`, and `textDocument/implementation`. |
 | 2        | Find references                                    | Essential before changing APIs, renaming symbols, or deleting code.         | Implemented as `csharp_references` using `textDocument/references`.                                                                      |
-| 3        | Rename symbol                                      | High-value Roslyn-backed refactoring with semantic correctness.             | Medium-easy: use `textDocument/prepareRename` and `textDocument/rename`, then apply the returned `WorkspaceEdit`.                        |
-| 4        | Hover info                                         | Exposes type information, signatures, XML docs, and nullable context.       | Easy: use `textDocument/hover` and return the raw or lightly normalized hover contents.                                                  |
-| 5        | Document symbols                                   | Gives a fast outline of classes, methods, properties, and fields in a file. | Easy: use `textDocument/documentSymbol`; complements the existing workspace symbol search.                                               |
+| 3        | Rename symbol                                      | High-value Roslyn-backed refactoring with semantic correctness.             | Implemented as `csharp_prepare_rename` and `csharp_rename` using `textDocument/prepareRename` and `textDocument/rename`.                 |
+| 4        | Hover info                                         | Exposes type information, signatures, XML docs, and nullable context.       | Implemented as `csharp_hover` using `textDocument/hover`.                                                                                |
+| 5        | Document symbols                                   | Gives a fast outline of classes, methods, properties, and fields in a file. | Implemented as `csharp_document_symbols` using `textDocument/documentSymbol`.                                                            |
 | 6        | Signature help                                     | Useful when editing method calls or generating argument lists.              | Easy-medium: use `textDocument/signatureHelp` with a file position.                                                                      |
-| 7        | Implementation lookup                              | Valuable for interfaces, abstract members, and inheritance-heavy code.      | Easy: use `textDocument/implementation`.                                                                                                 |
+| 7        | Implementation lookup                              | Valuable for interfaces, abstract members, and inheritance-heavy code.      | Implemented through `csharp_symbol_locations` with `kind: "implementation"`.                                                            |
 | 8        | Formatting                                         | Practical cleanup after generated edits.                                    | Medium: use `textDocument/formatting` or `textDocument/rangeFormatting`, then apply returned edits.                                      |
 | 9        | Organize imports                                   | Common cleanup after adding, moving, or generating code.                    | Medium-low effort: already available through code actions, but useful as a dedicated convenience tool.                                   |
 | 10       | Completion                                         | Useful in editors, but can be noisy for agent workflows.                    | Medium: use `textDocument/completion` and optionally `completionItem/resolve`; needs filtering to be useful.                             |
 | 11       | Inlay hints                                        | Helps explain inferred types and parameter names.                           | Medium: use `textDocument/inlayHint`; best as a read-only understanding tool.                                                            |
-| 12       | Call hierarchy                                     | Useful for impact analysis and tracing execution flow.                      | Medium: use `textDocument/prepareCallHierarchy`, incoming calls, and outgoing calls.                                                     |
+| 12       | Call hierarchy                                     | Useful for impact analysis and tracing execution flow.                      | Not currently exposed by the tested Roslyn server; `textDocument/prepareCallHierarchy` returns method-not-found.                        |
 | 13       | Semantic tokens                                    | Mostly editor-facing, with limited direct value as a tool response.         | Medium-hard: useful only if converted into higher-level analysis.                                                                        |
 | 14       | Folding and selection ranges                       | Editor convenience features.                                                | Easy but low priority for opencode-sharp.                                                                                                |
 | 15       | Document highlights                                | Shows local symbol usage near the cursor.                                   | Easy but mostly superseded by find references.                                                                                           |
 
 Recommended implementation order:
 
-1. Add navigation tools first: definition and references are implemented; hover, document symbols, and implementation lookup remain next candidates.
-2. Add refactoring and cleanup tools next: rename, formatting, and organize imports.
-3. Add richer analysis tools after that: signature help, inlay hints, and call hierarchy.
+1. Add navigation tools first: definition, type definition, implementation, and references are implemented.
+2. Add refactoring and cleanup tools next: rename is implemented; formatting and organize imports remain next candidates.
+3. Add richer analysis tools after that: hover and document symbols are implemented; signature help and inlay hints remain next candidates.
 4. Treat completion, semantic tokens, folding, selection ranges, and document highlights as lower priority unless a concrete opencode workflow needs them.
 
 Implemented priority 1 and 2 notes:
 
 - `src/tools/position.ts` centralizes one-based tool input conversion to LSP zero-based positions.
-- `src/tools/locations.ts` normalizes Roslyn `Location` and `LocationLink` responses into tool-friendly URI, file, and range objects.
-- `src/roslyn/client.ts` exposes focused wrappers for definition-like symbol location requests and references.
-- `src/index.ts` registers `csharp_symbol_locations` and `csharp_references` without changing existing tool names.
+- `src/tools/locations.ts` normalizes Roslyn `Location` and `LocationLink` responses into tool-friendly URI, file, range, and one-based position objects.
+- `src/roslyn/client.ts` exposes focused wrappers for symbol locations, references, hover, rename, and document symbols.
+- `src/index.ts` registers Roslyn-backed tools for C# navigation, understanding, and rename workflows.
 
 ## Source Layout
 
