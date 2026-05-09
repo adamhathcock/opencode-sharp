@@ -13,7 +13,17 @@ const actionCache = new Map<
     range: Range;
   }
 >();
+const completionCache = new Map<
+  string,
+  { client: RoslynLspClient; item: unknown }
+>();
+const inlayHintCache = new Map<
+  string,
+  { client: RoslynLspClient; hint: unknown }
+>();
 let nextActionId = 1;
+let nextCompletionId = 1;
+let nextInlayHintId = 1;
 
 export function getClient(context: ToolContext) {
   const root = path.resolve(context.worktree || context.directory);
@@ -49,6 +59,34 @@ export function deleteCachedAction(id: string) {
   actionCache.delete(id);
 }
 
+export function cacheCompletionItem(client: RoslynLspClient, item: unknown) {
+  const id = `ci-${nextCompletionId++}`;
+  completionCache.set(id, { client, item });
+  return id;
+}
+
+export function getCachedCompletionItem(id: string) {
+  return completionCache.get(id);
+}
+
+export function deleteCachedCompletionItem(id: string) {
+  completionCache.delete(id);
+}
+
+export function cacheInlayHint(client: RoslynLspClient, hint: unknown) {
+  const id = `ih-${nextInlayHintId++}`;
+  inlayHintCache.set(id, { client, hint });
+  return id;
+}
+
+export function getCachedInlayHint(id: string) {
+  return inlayHintCache.get(id);
+}
+
+export function deleteCachedInlayHint(id: string) {
+  inlayHintCache.delete(id);
+}
+
 export async function shutdownClientForRoot(root: string) {
   const resolvedRoot = path.resolve(root);
   const client = clients.get(resolvedRoot);
@@ -62,6 +100,16 @@ export async function shutdownClientForRoot(root: string) {
   for (const [id, cached] of actionCache) {
     if (cached.client === client) {
       actionCache.delete(id);
+    }
+  }
+  for (const [id, cached] of completionCache) {
+    if (cached.client === client) {
+      completionCache.delete(id);
+    }
+  }
+  for (const [id, cached] of inlayHintCache) {
+    if (cached.client === client) {
+      inlayHintCache.delete(id);
     }
   }
 }

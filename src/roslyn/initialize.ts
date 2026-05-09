@@ -33,6 +33,17 @@ export function getInitializeParams(root: string) {
           dynamicRegistration: false,
           hierarchicalDocumentSymbolSupport: true,
         },
+        callHierarchy: { dynamicRegistration: false },
+        typeHierarchy: { dynamicRegistration: false },
+        semanticTokens: {
+          dynamicRegistration: false,
+          tokenTypes: [],
+          tokenModifiers: [],
+          formats: ["relative"],
+          requests: { range: true, full: { delta: false } },
+        },
+        documentHighlight: { dynamicRegistration: false },
+        selectionRange: { dynamicRegistration: false },
         signatureHelp: {
           dynamicRegistration: false,
           signatureInformation: {

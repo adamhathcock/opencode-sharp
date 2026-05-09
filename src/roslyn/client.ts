@@ -21,6 +21,7 @@ const symbolLocationMethods: Record<SymbolLocationKind, string> = {
 export class RoslynLspClient {
   private connection: RpcConnection | undefined;
   private initialized: Promise<void> | undefined;
+  private initializeResult: unknown;
   private documents = new DocumentStore((method, params) =>
     this.notify(method, params),
   );
@@ -32,6 +33,7 @@ export class RoslynLspClient {
       root: this.root,
       initialized: this.initialized !== undefined,
       openDocuments: this.documents.size,
+      serverCapabilities: getProperty(this.initializeResult, "capabilities"),
       ...this.connection?.status(),
     };
   }
@@ -102,6 +104,86 @@ export class RoslynLspClient {
     return Array.isArray(response) ? response : [];
   }
 
+  async prepareCallHierarchy(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/prepareCallHierarchy", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async incomingCalls(item: unknown) {
+    const response = await this.request("callHierarchy/incomingCalls", {
+      item,
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async outgoingCalls(item: unknown) {
+    const response = await this.request("callHierarchy/outgoingCalls", {
+      item,
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async prepareTypeHierarchy(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/prepareTypeHierarchy", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async supertypes(item: unknown) {
+    const response = await this.request("typeHierarchy/supertypes", { item });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async subtypes(item: unknown) {
+    const response = await this.request("typeHierarchy/subtypes", { item });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async semanticTokens(file: string, range: Range | undefined) {
+    const document = await this.syncDocument(file);
+    if (range) {
+      return await this.request("textDocument/semanticTokens/range", {
+        textDocument: { uri: document.uri },
+        range,
+      });
+    }
+
+    return await this.request("textDocument/semanticTokens/full", {
+      textDocument: { uri: document.uri },
+    });
+  }
+
+  semanticTokensLegend() {
+    const capabilities = getProperty(this.initializeResult, "capabilities");
+    const provider = getProperty(capabilities, "semanticTokensProvider");
+    return getProperty(provider, "legend");
+  }
+
+  async documentHighlights(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/documentHighlight", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
+  async selectionRanges(file: string, positions: Position[]) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/selectionRange", {
+      textDocument: { uri: document.uri },
+      positions,
+    });
+    return Array.isArray(response) ? response : [];
+  }
+
   async signatureHelp(file: string, position: Position) {
     const document = await this.syncDocument(file);
     return await this.request("textDocument/signatureHelp", {
@@ -132,6 +214,14 @@ export class RoslynLspClient {
         ? { triggerKind: 2, triggerCharacter }
         : { triggerKind: 1 },
     });
+  }
+
+  async resolveCompletionItem(item: unknown) {
+    return await this.request("completionItem/resolve", item);
+  }
+
+  async resolveInlayHint(hint: unknown) {
+    return await this.request("inlayHint/resolve", hint);
   }
 
   async workspaceDiagnostics() {
@@ -217,7 +307,16 @@ export class RoslynLspClient {
       handleServerRequest(this.root, message),
     );
     await this.connection.start();
-    await this.connection.request("initialize", getInitializeParams(this.root));
+    this.initializeResult = await this.connection.request(
+      "initialize",
+      getInitializeParams(this.root),
+    );
     this.connection.notify("initialized", {});
   }
+}
+
+function getProperty(value: unknown, property: string) {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)[property]
+    : undefined;
 }

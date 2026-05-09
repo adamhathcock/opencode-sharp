@@ -2,11 +2,17 @@ import { tool } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
 import type { CodeActionOrCommand, WorkspaceEdit } from "./csharp/types";
-import type { SymbolLocationKind } from "./roslyn/client";
+import type { RoslynLspClient, SymbolLocationKind } from "./roslyn/client";
 import {
   cacheAction,
+  cacheCompletionItem,
+  cacheInlayHint,
+  deleteCachedCompletionItem,
+  deleteCachedInlayHint,
   deleteCachedAction,
   getCachedAction,
+  getCachedCompletionItem,
+  getCachedInlayHint,
   getClient,
   shutdownClientForRoot,
 } from "./state";
@@ -14,6 +20,7 @@ import {
   positionToToolPosition,
   rangeStartToToolPosition,
   normalizeLocations,
+  uriToFile,
 } from "./tools/locations";
 import { resolveWorkspacePath } from "./tools/paths";
 import { getPosition } from "./tools/position";
@@ -382,8 +389,29 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
           ok: true,
           file,
           range,
-          inlayHints: await client.inlayHints(file, range),
+          inlayHints: summarizeInlayHints(
+            client,
+            await client.inlayHints(file, range),
+          ),
         });
+      },
+    }),
+    csharp_resolve_inlay_hint: tool({
+      description:
+        "Preferred tool for resolving a Roslyn inlay hint returned by csharp_inlay_hints.",
+      args: { id: tool.schema.string() },
+      async execute(args) {
+        const cached = getCachedInlayHint(args.id);
+        if (!cached) {
+          return json({
+            ok: false,
+            error: `Unknown inlay hint ID: ${args.id}`,
+          });
+        }
+
+        const hint = await cached.client.resolveInlayHint(cached.hint);
+        deleteCachedInlayHint(args.id);
+        return json({ ok: true, id: args.id, hint });
       },
     }),
     csharp_completion: tool({
@@ -410,8 +438,207 @@ export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
           file,
           position,
           toolPosition: positionToToolPosition(position),
-          completion: summarizeCompletion(response, args.maxResults),
+          completion: summarizeCompletion(client, response, args.maxResults),
         });
+      },
+    }),
+    csharp_resolve_completion: tool({
+      description:
+        "Preferred tool for resolving a Roslyn completion item returned by csharp_completion.",
+      args: { id: tool.schema.string() },
+      async execute(args) {
+        const cached = getCachedCompletionItem(args.id);
+        if (!cached) {
+          return json({
+            ok: false,
+            error: `Unknown completion item ID: ${args.id}`,
+          });
+        }
+
+        const item = await cached.client.resolveCompletionItem(cached.item);
+        deleteCachedCompletionItem(args.id);
+        return json({ ok: true, id: args.id, item });
+      },
+    }),
+    csharp_call_hierarchy: tool({
+      description:
+        "Preferred tool for C# call hierarchy. Returns Roslyn incoming and/or outgoing calls for a symbol position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+        direction: tool.schema.string().optional(),
+      },
+      async execute(args, context) {
+        const direction = args.direction ?? "both";
+        if (!["incoming", "outgoing", "both"].includes(direction)) {
+          return json({
+            ok: false,
+            error: `Unsupported direction: ${direction}`,
+          });
+        }
+
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        try {
+          const items = await client.prepareCallHierarchy(file, position);
+          const calls = await Promise.all(
+            items.map(async (item: unknown) => ({
+              item: normalizeHierarchyItem(item),
+              incoming:
+                direction === "incoming" || direction === "both"
+                  ? normalizeCallHierarchyCalls(
+                      await client.incomingCalls(item),
+                    )
+                  : undefined,
+              outgoing:
+                direction === "outgoing" || direction === "both"
+                  ? normalizeCallHierarchyCalls(
+                      await client.outgoingCalls(item),
+                    )
+                  : undefined,
+            })),
+          );
+          return json({ ok: true, file, position, calls });
+        } catch (error) {
+          return json({
+            ok: false,
+            file,
+            position,
+            error: getErrorMessage(error),
+          });
+        }
+      },
+    }),
+    csharp_type_hierarchy: tool({
+      description:
+        "Preferred tool for C# type hierarchy. Returns Roslyn supertypes and/or subtypes for a type position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+        direction: tool.schema.string().optional(),
+      },
+      async execute(args, context) {
+        const direction = args.direction ?? "both";
+        if (!["supertypes", "subtypes", "both"].includes(direction)) {
+          return json({
+            ok: false,
+            error: `Unsupported direction: ${direction}`,
+          });
+        }
+
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        try {
+          const items = await client.prepareTypeHierarchy(file, position);
+          const types = await Promise.all(
+            items.map(async (item: unknown) => ({
+              item: normalizeHierarchyItem(item),
+              supertypes:
+                direction === "supertypes" || direction === "both"
+                  ? (await client.supertypes(item)).map(normalizeHierarchyItem)
+                  : undefined,
+              subtypes:
+                direction === "subtypes" || direction === "both"
+                  ? (await client.subtypes(item)).map(normalizeHierarchyItem)
+                  : undefined,
+            })),
+          );
+          return json({ ok: true, file, position, types });
+        } catch (error) {
+          return json({
+            ok: false,
+            file,
+            position,
+            error: getErrorMessage(error),
+          });
+        }
+      },
+    }),
+    csharp_semantic_tokens: tool({
+      description:
+        "Preferred tool for decoded C# Roslyn semantic tokens over a file or range.",
+      args: {
+        file: tool.schema.string(),
+        startLine: tool.schema.number().optional(),
+        startColumn: tool.schema.number().optional(),
+        endLine: tool.schema.number().optional(),
+        endColumn: tool.schema.number().optional(),
+        maxTokens: tool.schema.number().optional(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const text = await fs.readFile(file, "utf8");
+        const range =
+          args.startLine === undefined ? undefined : getRange(args, text);
+        const response = await client.semanticTokens(file, range);
+        return json({
+          ok: true,
+          file,
+          range,
+          semanticTokens: decodeSemanticTokens(
+            response,
+            client.semanticTokensLegend(),
+            text,
+            args.maxTokens,
+          ),
+          raw: response,
+        });
+      },
+    }),
+    csharp_document_highlights: tool({
+      description:
+        "Preferred tool for same-document C# symbol highlights from Roslyn at a file position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        const highlights = await client.documentHighlights(file, position);
+        return json({
+          ok: true,
+          file,
+          position,
+          highlights: highlights.map(normalizeDocumentHighlight),
+        });
+      },
+    }),
+    csharp_selection_ranges: tool({
+      description:
+        "Preferred tool for Roslyn semantic selection range expansion at a C# file position.",
+      args: {
+        file: tool.schema.string(),
+        line: tool.schema.number(),
+        column: tool.schema.number(),
+      },
+      async execute(args, context) {
+        const client = getClient(context);
+        const file = resolveWorkspacePath(context, args.file);
+        const position = getPosition(args);
+        try {
+          const ranges = await client.selectionRanges(file, [position]);
+          return json({
+            ok: true,
+            file,
+            position,
+            selectionRanges: ranges.map(normalizeSelectionRange),
+          });
+        } catch (error) {
+          return json({
+            ok: false,
+            file,
+            position,
+            error: getErrorMessage(error),
+          });
+        }
       },
     }),
     csharp_workspace_diagnostics: tool({
@@ -479,6 +706,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function summarizeCompletion(
+  client: RoslynLspClient,
   response: unknown,
   maxResults: number | undefined,
 ) {
@@ -490,6 +718,7 @@ function summarizeCompletion(
     items: items.slice(0, limit).map((item) =>
       isRecord(item)
         ? {
+            id: cacheCompletionItem(client, item),
             label: item.label,
             kind: item.kind,
             detail: item.detail,
@@ -501,6 +730,139 @@ function summarizeCompletion(
         : item,
     ),
   };
+}
+
+function summarizeInlayHints(client: RoslynLspClient, response: unknown) {
+  if (!Array.isArray(response)) {
+    return response;
+  }
+
+  return response.map((hint) =>
+    isRecord(hint)
+      ? {
+          id: cacheInlayHint(client, hint),
+          position: hint.position,
+          label: hint.label,
+          kind: hint.kind,
+          textEdits: hint.textEdits,
+          tooltip: hint.tooltip,
+          paddingLeft: hint.paddingLeft,
+          paddingRight: hint.paddingRight,
+          data: hint.data,
+        }
+      : hint,
+  );
+}
+
+function normalizeHierarchyItem(item: unknown) {
+  if (!isRecord(item)) {
+    return item;
+  }
+
+  return {
+    ...item,
+    file: typeof item.uri === "string" ? uriToFile(item.uri) : undefined,
+    position: rangeStartToToolPosition(item.selectionRange ?? item.range),
+  };
+}
+
+function normalizeCallHierarchyCalls(calls: unknown[]) {
+  return calls.map((call) => {
+    if (!isRecord(call)) {
+      return call;
+    }
+
+    return {
+      ...call,
+      from: normalizeHierarchyItem(call.from),
+      to: normalizeHierarchyItem(call.to),
+      fromRanges: call.fromRanges,
+    };
+  });
+}
+
+function normalizeDocumentHighlight(highlight: unknown) {
+  if (!isRecord(highlight)) {
+    return highlight;
+  }
+
+  return {
+    ...highlight,
+    position: rangeStartToToolPosition(highlight.range),
+  };
+}
+
+function normalizeSelectionRange(selectionRange: unknown) {
+  const ranges = [];
+  let current = selectionRange;
+  while (isRecord(current)) {
+    ranges.push({
+      range: current.range,
+      position: rangeStartToToolPosition(current.range),
+    });
+    current = current.parent;
+  }
+
+  return ranges;
+}
+
+function decodeSemanticTokens(
+  response: unknown,
+  legend: unknown,
+  text: string,
+  maxTokens: number | undefined,
+) {
+  const data =
+    isRecord(response) && Array.isArray(response.data) ? response.data : [];
+  const tokenTypes =
+    isRecord(legend) && Array.isArray(legend.tokenTypes)
+      ? legend.tokenTypes
+      : [];
+  const tokenModifiers =
+    isRecord(legend) && Array.isArray(legend.tokenModifiers)
+      ? legend.tokenModifiers
+      : [];
+  const lines = text.split(/\r?\n/);
+  const limit = Math.max(1, Math.min(Math.floor(maxTokens ?? 200), 1000));
+  const tokens = [];
+  let line = 0;
+  let character = 0;
+
+  for (
+    let index = 0;
+    index + 4 < data.length && tokens.length < limit;
+    index += 5
+  ) {
+    const deltaLine = numberAt(data, index);
+    const deltaStart = numberAt(data, index + 1);
+    const length = numberAt(data, index + 2);
+    const tokenType = numberAt(data, index + 3);
+    const modifierBits = numberAt(data, index + 4);
+
+    line += deltaLine;
+    character = deltaLine === 0 ? character + deltaStart : deltaStart;
+    const tokenText = lines[line]?.slice(character, character + length) ?? "";
+
+    tokens.push({
+      range: {
+        start: { line, character },
+        end: { line, character: character + length },
+      },
+      position: positionToToolPosition({ line, character }),
+      text: tokenText,
+      type: tokenTypes[tokenType] ?? tokenType,
+      modifiers: tokenModifiers.filter(
+        (_modifier, bit) => (modifierBits & (1 << bit)) !== 0,
+      ),
+    });
+  }
+
+  return { total: Math.floor(data.length / 5), tokens };
+}
+
+function numberAt(values: unknown[], index: number) {
+  const value = values[index];
+  return typeof value === "number" ? value : 0;
 }
 
 function getCompletionItems(response: unknown): unknown[] {
