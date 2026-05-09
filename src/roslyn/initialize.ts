@@ -15,6 +15,7 @@ export function getInitializeParams(root: string) {
         applyEdit: true,
         workspaceFolders: true,
         configuration: true,
+        diagnostics: { refreshSupport: true },
         didChangeConfiguration: { dynamicRegistration: true },
       },
       textDocument: {
@@ -24,10 +25,35 @@ export function getInitializeParams(root: string) {
         typeDefinition: { dynamicRegistration: false, linkSupport: true },
         implementation: { dynamicRegistration: false, linkSupport: true },
         references: { dynamicRegistration: false },
-        hover: { dynamicRegistration: false, contentFormat: ["markdown", "plaintext"] },
+        hover: {
+          dynamicRegistration: false,
+          contentFormat: ["markdown", "plaintext"],
+        },
         documentSymbol: {
           dynamicRegistration: false,
           hierarchicalDocumentSymbolSupport: true,
+        },
+        signatureHelp: {
+          dynamicRegistration: false,
+          signatureInformation: {
+            documentationFormat: ["markdown", "plaintext"],
+            parameterInformation: { labelOffsetSupport: true },
+          },
+        },
+        inlayHint: {
+          dynamicRegistration: false,
+          resolveSupport: { properties: ["tooltip", "textEdits", "label"] },
+        },
+        completion: {
+          dynamicRegistration: false,
+          completionItem: {
+            documentationFormat: ["markdown", "plaintext"],
+            snippetSupport: true,
+            resolveSupport: {
+              properties: ["documentation", "detail", "additionalTextEdits"],
+            },
+          },
+          contextSupport: true,
         },
         rename: {
           dynamicRegistration: false,

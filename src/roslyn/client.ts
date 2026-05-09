@@ -102,6 +102,45 @@ export class RoslynLspClient {
     return Array.isArray(response) ? response : [];
   }
 
+  async signatureHelp(file: string, position: Position) {
+    const document = await this.syncDocument(file);
+    return await this.request("textDocument/signatureHelp", {
+      textDocument: { uri: document.uri },
+      position,
+    });
+  }
+
+  async inlayHints(file: string, range: Range) {
+    const document = await this.syncDocument(file);
+    const response = await this.request("textDocument/inlayHint", {
+      textDocument: { uri: document.uri },
+      range,
+    });
+    return Array.isArray(response) ? response : response;
+  }
+
+  async completion(
+    file: string,
+    position: Position,
+    triggerCharacter: string | undefined,
+  ) {
+    const document = await this.syncDocument(file);
+    return await this.request("textDocument/completion", {
+      textDocument: { uri: document.uri },
+      position,
+      context: triggerCharacter
+        ? { triggerKind: 2, triggerCharacter }
+        : { triggerKind: 1 },
+    });
+  }
+
+  async workspaceDiagnostics() {
+    return await this.request("workspace/diagnostic", {
+      identifier: "opencode-sharp",
+      previousResultIds: [],
+    });
+  }
+
   async prepareRename(file: string, position: Position) {
     const document = await this.syncDocument(file);
     return await this.request("textDocument/prepareRename", {

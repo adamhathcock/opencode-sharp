@@ -4,7 +4,7 @@ import { formatMessage, MessageBuffer } from "./framing";
 import { MessageLog } from "./messageLog";
 import { PendingRequests } from "./pendingRequests";
 
-type RequestHandler = (message: JsonRpcMessage) => unknown;
+type RequestHandler = (message: JsonRpcMessage) => unknown | Promise<unknown>;
 
 export class RpcConnection {
   private child: ChildProcessWithoutNullStreams | undefined;
@@ -86,18 +86,18 @@ export class RpcConnection {
 
   private handleStdout(chunk: Buffer) {
     for (const message of this.messageBuffer.append(chunk)) {
-      this.handleMessage(message);
+      void this.handleMessage(message);
     }
   }
 
-  private handleMessage(message: JsonRpcMessage) {
+  private async handleMessage(message: JsonRpcMessage) {
     if (message.id !== undefined && message.method === undefined) {
       this.pending.resolve(message);
     } else if (message.id !== undefined && message.method) {
       this.write({
         jsonrpc: "2.0",
         id: message.id,
-        result: this.handleRequest(message),
+        result: await this.handleRequest(message),
       });
     } else {
       this.log.capture(message);
