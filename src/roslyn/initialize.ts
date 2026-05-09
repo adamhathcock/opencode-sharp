@@ -28,7 +28,6 @@ export function getInitializeParams(root: string) {
         definition: { dynamicRegistration: false, linkSupport: true },
         implementation: { dynamicRegistration: false, linkSupport: true },
         typeDefinition: { dynamicRegistration: false, linkSupport: true },
-        typeHierarchy: { dynamicRegistration: false },
         references: { dynamicRegistration: false },
         hover: {
           dynamicRegistration: false,

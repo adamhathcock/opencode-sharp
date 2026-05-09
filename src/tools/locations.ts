@@ -4,7 +4,6 @@ import type {
   LocationLink,
   Position,
   Range,
-  TypeHierarchyItem,
   WorkspaceSymbol,
 } from "../csharp/types";
 import { isRecord } from "../shared/json";
@@ -26,11 +25,6 @@ export type NormalizedLocation = {
 };
 
 export type NormalizedWorkspaceSymbol = WorkspaceSymbol & {
-  file?: string;
-  position?: ToolPosition;
-};
-
-export type NormalizedTypeHierarchyItem = TypeHierarchyItem & {
   file?: string;
   position?: ToolPosition;
 };
@@ -61,16 +55,6 @@ export function normalizeWorkspaceSymbols(
       position: rangeStartToToolPosition(range),
     };
   });
-}
-
-export function normalizeTypeHierarchyItems(
-  items: TypeHierarchyItem[],
-): NormalizedTypeHierarchyItem[] {
-  return items.map((item) => ({
-    ...item,
-    file: uriToFile(item.uri),
-    position: rangeStartToToolPosition(item.selectionRange ?? item.range),
-  }));
 }
 
 function normalizeLocation(item: unknown): NormalizedLocation[] {

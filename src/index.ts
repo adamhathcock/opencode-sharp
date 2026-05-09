@@ -4,14 +4,11 @@ import { promises as fs } from "node:fs";
 import type {
   CodeAction,
   CodeActionOrCommand,
-  TypeHierarchyItem,
   WorkspaceEdit,
-  WorkspaceSymbol,
 } from "./csharp/types";
 import { shutdownClientForRoot, getClient } from "./state";
 import {
   normalizeLocations,
-  normalizeTypeHierarchyItems,
   normalizeWorkspaceSymbols,
   positionToToolPosition,
   rangeStartToToolPosition,
@@ -96,7 +93,6 @@ export const CSharpLspPlugin: Plugin = async () => ({
       args: {
         query: tool.schema.string(),
         limit: tool.schema.number().optional(),
-        resolve: tool.schema.boolean().optional(),
       },
       async execute(args, context) {
         const client = getClient(context);
@@ -105,16 +101,12 @@ export const CSharpLspPlugin: Plugin = async () => ({
           0,
           limit,
         );
-        const resolved =
-          args.resolve === false
-            ? symbols
-            : await resolveWorkspaceSymbols(client, symbols);
 
         return json({
           ok: true,
           query: args.query,
           limit,
-          symbols: normalizeWorkspaceSymbols(resolved),
+          symbols: normalizeWorkspaceSymbols(symbols),
         });
       },
     }),
@@ -201,39 +193,6 @@ export const CSharpLspPlugin: Plugin = async () => ({
           newName: args.newName,
           applied,
           edit,
-        });
-      },
-    }),
-    csharp_type_hierarchy: tool({
-      description:
-        "Return Roslyn type hierarchy supertypes and/or subtypes for a C# symbol position.",
-      args: {
-        file: tool.schema.string(),
-        line: tool.schema.number(),
-        column: tool.schema.number(),
-        direction: tool.schema.string().optional(),
-        depth: tool.schema.number().optional(),
-      },
-      async execute(args, context) {
-        const client = getClient(context);
-        const file = resolveWorkspacePath(context, args.file);
-        const position = getPosition(args);
-        const direction = getHierarchyDirection(args.direction);
-        const depth = getLimit(args.depth, 1, 3);
-        const items = await client.prepareTypeHierarchy(file, position);
-
-        return json({
-          ok: true,
-          file,
-          position,
-          toolPosition: positionToToolPosition(position),
-          direction,
-          depth,
-          items: await Promise.all(
-            items.map((item) =>
-              getTypeHierarchy(client, item, direction, depth),
-            ),
-          ),
         });
       },
     }),
@@ -430,7 +389,6 @@ async function resolveActionIfPossible(
 }
 
 type SymbolLocationKind = "definition" | "typeDefinition" | "implementation";
-type HierarchyDirection = "both" | "supertypes" | "subtypes";
 
 function getLocationKind(kind: string | undefined): SymbolLocationKind {
   if (
@@ -447,91 +405,10 @@ function getLocationKind(kind: string | undefined): SymbolLocationKind {
   );
 }
 
-function getHierarchyDirection(
-  direction: string | undefined,
-): HierarchyDirection {
-  if (
-    direction === undefined ||
-    direction === "both" ||
-    direction === "supertypes" ||
-    direction === "subtypes"
-  ) {
-    return direction ?? "both";
-  }
-
-  throw new Error("direction must be one of: both, supertypes, subtypes");
-}
-
 function getLimit(value: number | undefined, fallback: number, max: number) {
   if (value === undefined || !Number.isFinite(value)) {
     return fallback;
   }
 
   return Math.min(Math.max(Math.floor(value), 1), max);
-}
-
-async function resolveWorkspaceSymbols(
-  client: {
-    resolveWorkspaceSymbol(symbol: WorkspaceSymbol): Promise<WorkspaceSymbol>;
-  },
-  symbols: WorkspaceSymbol[],
-): Promise<WorkspaceSymbol[]> {
-  return await Promise.all(
-    symbols.map(async (symbol) => {
-      try {
-        return await client.resolveWorkspaceSymbol(symbol);
-      } catch (error) {
-        return {
-          ...symbol,
-          resolveError: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }),
-  );
-}
-
-async function getTypeHierarchy(
-  client: {
-    typeHierarchySupertypes(
-      item: TypeHierarchyItem,
-    ): Promise<TypeHierarchyItem[]>;
-    typeHierarchySubtypes(
-      item: TypeHierarchyItem,
-    ): Promise<TypeHierarchyItem[]>;
-  },
-  item: TypeHierarchyItem,
-  direction: HierarchyDirection,
-  depth: number,
-  seen = new Set<string>(),
-): Promise<unknown> {
-  const normalized = normalizeTypeHierarchyItems([item])[0] ?? item;
-  const key = getTypeHierarchyKey(item);
-  if (depth <= 0 || seen.has(key)) {
-    return { item: normalized, cycle: seen.has(key) || undefined };
-  }
-
-  const nextSeen = new Set(seen);
-  nextSeen.add(key);
-  const [supertypes, subtypes] = await Promise.all([
-    direction === "subtypes" ? [] : client.typeHierarchySupertypes(item),
-    direction === "supertypes" ? [] : client.typeHierarchySubtypes(item),
-  ]);
-
-  return {
-    item: normalized,
-    supertypes: await Promise.all(
-      supertypes.map((child) =>
-        getTypeHierarchy(client, child, direction, depth - 1, nextSeen),
-      ),
-    ),
-    subtypes: await Promise.all(
-      subtypes.map((child) =>
-        getTypeHierarchy(client, child, direction, depth - 1, nextSeen),
-      ),
-    ),
-  };
-}
-
-function getTypeHierarchyKey(item: TypeHierarchyItem) {
-  return `${item.uri}:${item.selectionRange.start.line}:${item.selectionRange.start.character}:${item.name}`;
 }

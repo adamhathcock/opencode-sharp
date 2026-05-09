@@ -2,7 +2,6 @@ import type {
   CodeAction,
   Position,
   Range,
-  TypeHierarchyItem,
   WorkspaceSymbol,
 } from "../csharp/types";
 import { getStableCodeActions } from "./codeActionPolling";
@@ -81,36 +80,10 @@ export class RoslynLspClient {
 
   async workspaceSymbols(query: string) {
     await this.ensureStarted();
+    await this.waitForProjectLoad();
     await this.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy"]);
     const response = await this.request("workspace/symbol", { query });
     return Array.isArray(response) ? (response as WorkspaceSymbol[]) : [];
-  }
-
-  async resolveWorkspaceSymbol(symbol: WorkspaceSymbol) {
-    return (await this.request(
-      "workspaceSymbol/resolve",
-      symbol,
-    )) as WorkspaceSymbol;
-  }
-
-  async prepareTypeHierarchy(file: string, position: Position) {
-    const document = await this.syncDocument(file);
-    await this.waitForRoslynOperations(["Workspace", "SolutionCrawlerLegacy"]);
-    const response = await this.request("textDocument/prepareTypeHierarchy", {
-      textDocument: { uri: document.uri },
-      position,
-    });
-    return Array.isArray(response) ? (response as TypeHierarchyItem[]) : [];
-  }
-
-  async typeHierarchySupertypes(item: TypeHierarchyItem) {
-    const response = await this.request("typeHierarchy/supertypes", { item });
-    return Array.isArray(response) ? (response as TypeHierarchyItem[]) : [];
-  }
-
-  async typeHierarchySubtypes(item: TypeHierarchyItem) {
-    const response = await this.request("typeHierarchy/subtypes", { item });
-    return Array.isArray(response) ? (response as TypeHierarchyItem[]) : [];
   }
 
   async references(
@@ -183,6 +156,21 @@ export class RoslynLspClient {
     }
   }
 
+  async waitForProjectLoad() {
+    const deadline = Date.now() + 15000;
+    do {
+      if (
+        JSON.stringify(this.status().logMessages).includes(
+          "Successfully completed load",
+        )
+      ) {
+        return;
+      }
+
+      await delay(250);
+    } while (Date.now() < deadline);
+  }
+
   async request(method: string, params: unknown) {
     await this.ensureStarted();
     return await this.connection!.request(method, params);
@@ -217,6 +205,10 @@ export class RoslynLspClient {
     );
     this.connection.notify("initialized", {});
   }
+}
+
+async function delay(milliseconds: number) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function getProperty(value: unknown, property: string) {

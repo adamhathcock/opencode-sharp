@@ -65,17 +65,6 @@ export type WorkspaceSymbol = {
   data?: unknown;
 };
 
-export type TypeHierarchyItem = {
-  name: string;
-  kind: number;
-  tags?: number[];
-  detail?: string;
-  uri: string;
-  range: Range;
-  selectionRange: Range;
-  data?: unknown;
-};
-
 export type CodeAction = {
   title: string;
   kind?: string;

@@ -4,8 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CodeActionOrCommand, Position } from "../../src/csharp/types";
+import { CSharpLspPlugin } from "../../src/index";
 import { RoslynLspClient } from "../../src/roslyn/client";
-import { normalizeLocations } from "../../src/tools/locations";
+import { shutdownClientForRoot } from "../../src/state";
+import {
+  normalizeLocations,
+  normalizeWorkspaceSymbols,
+} from "../../src/tools/locations";
 import { applyWorkspaceEdit } from "../../src/tools/workspaceEdit";
 
 const fixtureRoot = fileURLToPath(
@@ -71,6 +76,55 @@ test("references include interface, implementation, and call sites", async () =>
   expect(files.has(file("ICalculator.cs"))).toBe(true);
   expect(files.has(file("Calculator.cs"))).toBe(true);
   expect(files.has(file("Consumer.cs"))).toBe(true);
+});
+
+test("workspace symbols find project types without resolve", async () => {
+  const { client, file } = getProject();
+
+  const symbols = normalizeWorkspaceSymbols(
+    await client.workspaceSymbols("Calculator"),
+  );
+
+  expect(
+    symbols.some(
+      (symbol) =>
+        symbol.name === "Calculator" && symbol.file === file("Calculator.cs"),
+    ),
+  ).toBe(true);
+  expect(
+    symbols.some(
+      (symbol) =>
+        symbol.name === "ICalculator" && symbol.file === file("ICalculator.cs"),
+    ),
+  ).toBe(true);
+});
+
+test("workspace symbol tool does not expose unsupported resolve option", async () => {
+  const { root, file } = getProject();
+  const plugin = await CSharpLspPlugin({} as never);
+  const workspaceSymbols = plugin.tool?.csharp_workspace_symbols;
+
+  expect(workspaceSymbols).toBeDefined();
+  if (!workspaceSymbols) {
+    throw new Error("Expected csharp_workspace_symbols tool.");
+  }
+
+  const toolResult = await workspaceSymbols.execute(
+    { query: "Calculator", limit: 10 },
+    { directory: root, worktree: root } as never,
+  );
+  await shutdownClientForRoot(root);
+  const result = JSON.parse(getToolOutput(toolResult));
+
+  expect(result.ok).toBe(true);
+  expect(result.symbols.length).toBeGreaterThan(0);
+  expect(
+    result.symbols.some(
+      (symbol: { name?: string; file?: string }) =>
+        symbol.name === "Calculator" && symbol.file === file("Calculator.cs"),
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(result)).not.toContain("resolveError");
 });
 
 test("hover returns Roslyn type information", async () => {
@@ -235,4 +289,16 @@ function getTitle(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function getToolOutput(result: unknown) {
+  if (typeof result === "string") {
+    return result;
+  }
+
+  if (isRecord(result) && typeof result.output === "string") {
+    return result.output;
+  }
+
+  throw new Error(`Unexpected tool result: ${JSON.stringify(result)}`);
 }
