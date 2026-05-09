@@ -49,16 +49,19 @@ export function deleteCachedAction(id: string) {
   actionCache.delete(id);
 }
 
-export function getClientCount() {
-  return clients.size;
-}
+export async function shutdownClientForRoot(root: string) {
+  const resolvedRoot = path.resolve(root);
+  const client = clients.get(resolvedRoot);
+  if (!client) {
+    return;
+  }
 
-export function getStatus(client: RoslynLspClient) {
-  return client.status();
-}
+  await client.shutdown();
+  clients.delete(resolvedRoot);
 
-export async function shutdownAllClients() {
-  await Promise.all([...clients.values()].map((client) => client.shutdown()));
-  clients.clear();
-  actionCache.clear();
+  for (const [id, cached] of actionCache) {
+    if (cached.client === client) {
+      actionCache.delete(id);
+    }
+  }
 }

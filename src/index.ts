@@ -1,37 +1,20 @@
 import { tool } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode-ai/plugin";
 import type { SymbolLocationKind } from "./roslyn/client";
+import { shutdownClientForRoot } from "./state";
 import { normalizeLocations } from "./tools/locations";
 import { resolveWorkspacePath } from "./tools/paths";
 import { getPosition } from "./tools/position";
-import {
-  getClient,
-  getClientCount,
-  getStatus,
-  shutdownAllClients,
-} from "./state";
+import { getClient } from "./state";
 import { json } from "./shared/json";
 
 export const CSharpLspPlugin: Plugin = async (pluginContext) => ({
+  async event({ event }) {
+    if (event.type === "server.instance.disposed") {
+      await shutdownClientForRoot(event.properties.directory);
+    }
+  },
   tool: {
-    csharp_lsp_status: tool({
-      description:
-        "Return status for the opencode-sharp Roslyn language server sidecar.",
-      args: {},
-      async execute(_args, context) {
-        const status = getStatus(getClient(context));
-        return json({ ok: true, ...status });
-      },
-    }),
-    csharp_lsp_shutdown: tool({
-      description: "Shut down opencode-sharp Roslyn language server sidecars.",
-      args: {},
-      async execute() {
-        const count = getClientCount();
-        await shutdownAllClients();
-        return json({ ok: true, shutDown: count });
-      },
-    }),
     csharp_diagnostics: tool({
       description:
         "Preferred tool for .cs diagnostics. Pull Roslyn diagnostics for a C# file using the opencode-sharp sidecar instead of generic LSP diagnostics.",

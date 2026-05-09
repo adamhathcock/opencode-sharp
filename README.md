@@ -68,6 +68,8 @@ Command resolution order:
 2. `~/.dotnet/tools/roslyn-language-server`
 3. `roslyn-language-server` from `PATH`
 
+The Roslyn sidecar starts lazily when a Roslyn-backed tool first needs it. The plugin shuts down the sidecar for a worktree when opencode emits `server.instance.disposed` for that directory.
+
 Override the command:
 
 ```bash
@@ -81,14 +83,6 @@ OPENCODE_SHARP_ROSLYN_ARGS="--stdio --autoLoadProjects --logLevel Information"
 ```
 
 ## Tools
-
-`csharp_lsp_status`
-
-Returns sidecar status, including whether the Roslyn process is running, open document count, recent log messages, stderr, and last exit info.
-
-`csharp_lsp_shutdown`
-
-Shuts down all Roslyn sidecars managed by the plugin and clears cached code actions.
 
 `csharp_diagnostics`
 

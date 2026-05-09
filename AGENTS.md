@@ -25,8 +25,6 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 
 ## Current Tools
 
-- `csharp_lsp_status`: returns status for the Roslyn sidecar, including open document count, logs, stderr, and exit information.
-- `csharp_lsp_shutdown`: shuts down sidecar instances and clears cached code actions.
 - `csharp_diagnostics`: pulls Roslyn diagnostics for a C# file through public and VS-internal diagnostic LSP requests.
 - `csharp_workspace_symbols`: searches Roslyn workspace symbols across loaded C# solutions/projects through `workspace/symbol`.
 - `csharp_code_actions`: lists Roslyn code actions for a file range and caches returned actions by ID.
@@ -40,6 +38,7 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - Default arguments are `--stdio --autoLoadProjects`.
 - `OPENCODE_SHARP_ROSLYN_ARGS` can override the argument string.
 - Keep one Roslyn client per worktree through `src/state.ts`; do not spawn a process per tool call.
+- Start Roslyn lazily on first Roslyn-backed tool use and shut down the matching worktree client from the `server.instance.disposed` event hook.
 
 ## Development
 
