@@ -33,14 +33,6 @@ afterAll(async () => {
   }
 });
 
-test("workspace symbols include real project types", async () => {
-  const { client } = getProject();
-
-  const symbols = await client.workspaceSymbols("Calculator");
-
-  expect(symbols.some((symbol) => getName(symbol) === "Calculator")).toBe(true);
-});
-
 test("document symbols include types and members", async () => {
   const { client, file } = getProject();
 
@@ -105,35 +97,6 @@ test("diagnostics report compiler errors from a real file", async () => {
   ).toBe(true);
 });
 
-test("signature help returns parameter information", async () => {
-  const { client, file, readPosition } = getProject();
-  const consumer = file("Consumer.cs");
-  const position = await readPosition(consumer, "Add(", "Add(".length);
-
-  const signatureHelp = await client.signatureHelp(consumer, position);
-
-  expect(JSON.stringify(signatureHelp)).toContain("left");
-  expect(JSON.stringify(signatureHelp)).toContain("right");
-});
-
-test("completion request returns the raw Roslyn response", async () => {
-  const { client, file, readPosition } = getProject();
-  const consumer = file("Consumer.cs");
-  const position = await readPosition(
-    consumer,
-    "calculator.",
-    "calculator.".length,
-  );
-
-  const response = await client.completion(consumer, position, ".");
-  const items = getCompletionItems(response);
-
-  expect(
-    response === null || Array.isArray(response) || isRecord(response),
-  ).toBe(true);
-  expect(Array.isArray(items)).toBe(true);
-});
-
 test("code actions include organize imports and can apply its edit", async () => {
   const { client, file } = getProject();
   const imports = file("Imports.cs");
@@ -170,123 +133,6 @@ test("code actions include organize imports and can apply its edit", async () =>
   expect(updated.indexOf("using System;")).toBeLessThan(
     updated.indexOf("using System.Text;"),
   );
-});
-
-test("call hierarchy returns outgoing calls", async () => {
-  const { client, file, readPosition } = getProject();
-  const calculator = file("Calculator.cs");
-  const position = await readPosition(calculator, "Double", 1);
-
-  let items: unknown[];
-  try {
-    items = await client.prepareCallHierarchy(calculator, position);
-  } catch (error) {
-    expect(getErrorMessage(error)).toContain("prepareCallHierarchy");
-    return;
-  }
-
-  expect(items.length).toBeGreaterThan(0);
-  const outgoing = await client.outgoingCalls(items[0]);
-
-  expect(JSON.stringify(outgoing)).toContain("Add");
-});
-
-test("type hierarchy returns derived types", async () => {
-  const { client, file, readPosition } = getProject();
-  const hierarchy = file("Hierarchy.cs");
-  const position = await readPosition(hierarchy, "Operation", 1);
-
-  let items: unknown[];
-  try {
-    items = await client.prepareTypeHierarchy(hierarchy, position);
-  } catch (error) {
-    expect(getErrorMessage(error)).toContain("prepareTypeHierarchy");
-    return;
-  }
-
-  expect(items.length).toBeGreaterThan(0);
-  const subtypes = await client.subtypes(items[0]);
-
-  expect(JSON.stringify(subtypes)).toContain("IncrementOperation");
-});
-
-test("semantic tokens return Roslyn token data and legend", async () => {
-  const { client, file } = getProject();
-
-  const response = await client.semanticTokens(
-    file("Calculator.cs"),
-    undefined,
-  );
-  const legend = client.semanticTokensLegend();
-
-  expect(isRecord(response)).toBe(true);
-  expect(isRecord(response) && Array.isArray(response.data)).toBe(true);
-  expect(JSON.stringify(legend)).toContain("class");
-});
-
-test("completion items can be resolved", async () => {
-  const { client, file, readPosition } = getProject();
-  const consumer = file("Consumer.cs");
-  const position = await readPosition(
-    consumer,
-    "calculator.",
-    "calculator.".length,
-  );
-
-  const response = await client.completion(consumer, position, ".");
-  const item = getCompletionItems(response).find(
-    (candidate) => getLabel(candidate) === "Add",
-  );
-
-  expect(item).toBeDefined();
-  const resolved = await client.resolveCompletionItem(item);
-
-  expect(JSON.stringify(resolved)).toContain("Add");
-});
-
-test("inlay hints can be resolved when Roslyn returns them", async () => {
-  const { client, file } = getProject();
-  const calculator = file("Calculator.cs");
-  const text = await fs.readFile(calculator, "utf8");
-
-  const hints = await client.inlayHints(calculator, fullRange(text));
-
-  expect(Array.isArray(hints)).toBe(true);
-  const hintItems = Array.isArray(hints) ? hints : [];
-  if (hintItems.length === 0) {
-    expect(hintItems).toEqual([]);
-    return;
-  }
-  const resolved = await client.resolveInlayHint(hintItems[0]);
-
-  expect(JSON.stringify(resolved)).toContain("position");
-});
-
-test("document highlights include local symbol occurrences", async () => {
-  const { client, file, readPosition } = getProject();
-  const calculator = file("Calculator.cs");
-  const position = await readPosition(calculator, "total", 1);
-
-  const highlights = await client.documentHighlights(calculator, position);
-
-  expect(highlights.length).toBeGreaterThanOrEqual(2);
-});
-
-test("selection ranges expand from a position", async () => {
-  const { client, file, readPosition } = getProject();
-  const calculator = file("Calculator.cs");
-  const position = await readPosition(calculator, "value, value", 1);
-
-  let ranges: unknown[];
-  try {
-    ranges = await client.selectionRanges(calculator, [position]);
-  } catch (error) {
-    expect(getErrorMessage(error)).toContain("selectionRange");
-    return;
-  }
-
-  expect(ranges.length).toBe(1);
-  expect(selectionDepth(ranges[0])).toBeGreaterThan(1);
 });
 
 function getProject() {
@@ -383,42 +229,8 @@ function flattenCodeActions(actions: unknown[]): unknown[] {
   ]);
 }
 
-function getCompletionItems(response: unknown): unknown[] {
-  if (Array.isArray(response)) {
-    return response;
-  }
-  if (isRecord(response) && Array.isArray(response.items)) {
-    return response.items;
-  }
-
-  return [];
-}
-
-function getName(value: unknown) {
-  return isRecord(value) ? value.name : undefined;
-}
-
-function getLabel(value: unknown) {
-  return isRecord(value) ? value.label : undefined;
-}
-
 function getTitle(value: unknown) {
   return isRecord(value) ? value.title : undefined;
-}
-
-function selectionDepth(value: unknown) {
-  let depth = 0;
-  let current = value;
-  while (isRecord(current)) {
-    depth += 1;
-    current = current.parent;
-  }
-
-  return depth;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

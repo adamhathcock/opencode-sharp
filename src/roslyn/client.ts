@@ -7,15 +7,10 @@ import { getInitializeParams } from "./initialize";
 import { handleServerRequest } from "./serverRequests";
 import { RpcConnection } from "./rpcConnection";
 
-export type SymbolLocationKind =
-  | "definition"
-  | "typeDefinition"
-  | "implementation";
+export type SymbolLocationKind = "definition";
 
 const symbolLocationMethods: Record<SymbolLocationKind, string> = {
   definition: "textDocument/definition",
-  typeDefinition: "textDocument/typeDefinition",
-  implementation: "textDocument/implementation",
 };
 
 export class RoslynLspClient {
@@ -55,11 +50,6 @@ export class RoslynLspClient {
       "SolutionCrawlerLegacy",
       "DiagnosticService",
     ]);
-  }
-
-  async workspaceSymbols(query: string) {
-    const response = await this.request("workspace/symbol", { query });
-    return Array.isArray(response) ? response : [];
   }
 
   async symbolLocations(
@@ -102,141 +92,6 @@ export class RoslynLspClient {
       textDocument: { uri: document.uri },
     });
     return Array.isArray(response) ? response : [];
-  }
-
-  async prepareCallHierarchy(file: string, position: Position) {
-    const document = await this.syncDocument(file);
-    const response = await this.request("textDocument/prepareCallHierarchy", {
-      textDocument: { uri: document.uri },
-      position,
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async incomingCalls(item: unknown) {
-    const response = await this.request("callHierarchy/incomingCalls", {
-      item,
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async outgoingCalls(item: unknown) {
-    const response = await this.request("callHierarchy/outgoingCalls", {
-      item,
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async prepareTypeHierarchy(file: string, position: Position) {
-    const document = await this.syncDocument(file);
-    const response = await this.request("textDocument/prepareTypeHierarchy", {
-      textDocument: { uri: document.uri },
-      position,
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async supertypes(item: unknown) {
-    const response = await this.request("typeHierarchy/supertypes", { item });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async subtypes(item: unknown) {
-    const response = await this.request("typeHierarchy/subtypes", { item });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async semanticTokens(file: string, range: Range | undefined) {
-    const document = await this.syncDocument(file);
-    if (range) {
-      return await this.request("textDocument/semanticTokens/range", {
-        textDocument: { uri: document.uri },
-        range,
-      });
-    }
-
-    return await this.request("textDocument/semanticTokens/full", {
-      textDocument: { uri: document.uri },
-    });
-  }
-
-  semanticTokensLegend() {
-    const capabilities = getProperty(this.initializeResult, "capabilities");
-    const provider = getProperty(capabilities, "semanticTokensProvider");
-    return getProperty(provider, "legend");
-  }
-
-  async documentHighlights(file: string, position: Position) {
-    const document = await this.syncDocument(file);
-    const response = await this.request("textDocument/documentHighlight", {
-      textDocument: { uri: document.uri },
-      position,
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async selectionRanges(file: string, positions: Position[]) {
-    const document = await this.syncDocument(file);
-    const response = await this.request("textDocument/selectionRange", {
-      textDocument: { uri: document.uri },
-      positions,
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
-  async signatureHelp(file: string, position: Position) {
-    const document = await this.syncDocument(file);
-    return await this.request("textDocument/signatureHelp", {
-      textDocument: { uri: document.uri },
-      position,
-    });
-  }
-
-  async inlayHints(file: string, range: Range) {
-    const document = await this.syncDocument(file);
-    const response = await this.request("textDocument/inlayHint", {
-      textDocument: { uri: document.uri },
-      range,
-    });
-    return Array.isArray(response) ? response : response;
-  }
-
-  async completion(
-    file: string,
-    position: Position,
-    triggerCharacter: string | undefined,
-  ) {
-    const document = await this.syncDocument(file);
-    return await this.request("textDocument/completion", {
-      textDocument: { uri: document.uri },
-      position,
-      context: triggerCharacter
-        ? { triggerKind: 2, triggerCharacter }
-        : { triggerKind: 1 },
-    });
-  }
-
-  async resolveCompletionItem(item: unknown) {
-    return await this.request("completionItem/resolve", item);
-  }
-
-  async resolveInlayHint(hint: unknown) {
-    return await this.request("inlayHint/resolve", hint);
-  }
-
-  async workspaceDiagnostics() {
-    return await this.request("workspace/diagnostic", {
-      identifier: "opencode-sharp",
-      previousResultIds: [],
-    });
-  }
-
-  async prepareRename(file: string, position: Position) {
-    const document = await this.syncDocument(file);
-    return await this.request("textDocument/prepareRename", {
-      textDocument: { uri: document.uri },
-      position,
-    });
   }
 
   async rename(file: string, position: Position, newName: string) {

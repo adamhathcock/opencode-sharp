@@ -22,8 +22,6 @@ export function getInitializeParams(root: string) {
         synchronization: { didSave: true, dynamicRegistration: false },
         diagnostic: { dynamicRegistration: false },
         definition: { dynamicRegistration: false, linkSupport: true },
-        typeDefinition: { dynamicRegistration: false, linkSupport: true },
-        implementation: { dynamicRegistration: false, linkSupport: true },
         references: { dynamicRegistration: false },
         hover: {
           dynamicRegistration: false,
@@ -32,39 +30,6 @@ export function getInitializeParams(root: string) {
         documentSymbol: {
           dynamicRegistration: false,
           hierarchicalDocumentSymbolSupport: true,
-        },
-        callHierarchy: { dynamicRegistration: false },
-        typeHierarchy: { dynamicRegistration: false },
-        semanticTokens: {
-          dynamicRegistration: false,
-          tokenTypes: [],
-          tokenModifiers: [],
-          formats: ["relative"],
-          requests: { range: true, full: { delta: false } },
-        },
-        documentHighlight: { dynamicRegistration: false },
-        selectionRange: { dynamicRegistration: false },
-        signatureHelp: {
-          dynamicRegistration: false,
-          signatureInformation: {
-            documentationFormat: ["markdown", "plaintext"],
-            parameterInformation: { labelOffsetSupport: true },
-          },
-        },
-        inlayHint: {
-          dynamicRegistration: false,
-          resolveSupport: { properties: ["tooltip", "textEdits", "label"] },
-        },
-        completion: {
-          dynamicRegistration: false,
-          completionItem: {
-            documentationFormat: ["markdown", "plaintext"],
-            snippetSupport: true,
-            resolveSupport: {
-              properties: ["documentation", "detail", "additionalTextEdits"],
-            },
-          },
-          contextSupport: true,
         },
         rename: {
           dynamicRegistration: false,
