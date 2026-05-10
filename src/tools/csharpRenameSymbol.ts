@@ -26,7 +26,8 @@ export const csharpRenameSymbolTool: any = tool({
       position,
       args.newName,
     )) as WorkspaceEdit | null;
-    const applied = args.apply && edit ? await applyWorkspaceEdit(edit) : undefined;
+    const applied =
+      args.apply && edit ? await applyWorkspaceEdit(edit) : undefined;
 
     return json({
       ok: true,

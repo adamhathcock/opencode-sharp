@@ -1,5 +1,6 @@
 import type {
   CodeAction,
+  Diagnostic,
   Position,
   Range,
   WorkspaceSymbol,
@@ -111,13 +112,18 @@ export class RoslynLspClient {
     });
   }
 
-  async codeActions(file: string, range: Range) {
+  async codeActions(
+    file: string,
+    range: Range,
+    options: { diagnostics?: Diagnostic[]; only?: string[] } = {},
+  ) {
     const document = await this.syncDocument(file);
     return await getStableCodeActions(
       document.uri,
       range,
       (method, params) => this.request(method, params),
       (operations) => this.waitForRoslynOperations(operations),
+      options,
     );
   }
 
@@ -143,6 +149,7 @@ export class RoslynLspClient {
   }
 
   async waitForProjectLoad() {
+    await this.ensureStarted();
     const deadline = Date.now() + 15000;
     do {
       if (

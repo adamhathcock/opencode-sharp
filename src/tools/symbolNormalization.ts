@@ -12,7 +12,10 @@ export function normalizeDocumentSymbols(symbols: unknown[]): unknown[] {
       position: rangeStartToToolPosition(symbol.selectionRange ?? symbol.range),
     };
     if (Array.isArray(symbol.children)) {
-      return { ...normalized, children: normalizeDocumentSymbols(symbol.children) };
+      return {
+        ...normalized,
+        children: normalizeDocumentSymbols(symbol.children),
+      };
     }
     if (isRecord(symbol.location)) {
       return {

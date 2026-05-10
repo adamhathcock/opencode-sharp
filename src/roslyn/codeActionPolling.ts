@@ -1,4 +1,4 @@
-import type { Range } from "../csharp/types";
+import type { Diagnostic, Range } from "../csharp/types";
 
 type Request = (method: string, params: unknown) => Promise<unknown>;
 type Wait = (operations: string[]) => Promise<void>;
@@ -15,6 +15,7 @@ export async function getStableCodeActions(
   range: Range,
   request: Request,
   wait: Wait,
+  options: { diagnostics?: Diagnostic[]; only?: string[] } = {},
 ) {
   await wait(operations);
   let previousSignature: string | undefined;
@@ -24,7 +25,7 @@ export async function getStableCodeActions(
 
   do {
     await wait(operations);
-    latest = await requestCodeActions(uri, range, request);
+    latest = await requestCodeActions(uri, range, request, options);
     const signature = getCodeActionSignature(latest);
     if (Date.now() >= stableAfter && signature === previousSignature) {
       return latest;
@@ -37,11 +38,19 @@ export async function getStableCodeActions(
   return latest;
 }
 
-async function requestCodeActions(uri: string, range: Range, request: Request) {
+async function requestCodeActions(
+  uri: string,
+  range: Range,
+  request: Request,
+  options: { diagnostics?: Diagnostic[]; only?: string[] },
+) {
   const response = await request("textDocument/codeAction", {
     textDocument: { uri },
     range,
-    context: { diagnostics: [] },
+    context: {
+      diagnostics: options.diagnostics ?? [],
+      ...(options.only ? { only: options.only } : {}),
+    },
   });
 
   return Array.isArray(response) ? response : [];

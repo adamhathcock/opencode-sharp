@@ -11,6 +11,7 @@ export const diagnosticCategories = [
 ];
 
 export async function getDiagnostics(client: RoslynLspClient, file: string) {
+  await client.waitForProjectLoad();
   const document = await client.syncDocument(file);
   await client.waitForRoslynOperations([
     "Workspace",
@@ -40,6 +41,7 @@ export async function getDiagnostics(client: RoslynLspClient, file: string) {
 }
 
 export async function getWorkspaceDiagnostics(client: RoslynLspClient) {
+  await client.waitForProjectLoad();
   await client.waitForRoslynOperations([
     "Workspace",
     "SolutionCrawlerLegacy",

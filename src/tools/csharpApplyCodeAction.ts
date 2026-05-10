@@ -3,10 +3,7 @@ import { promises as fs } from "node:fs";
 import type { CodeActionOrCommand } from "../csharp/types";
 import { getClient } from "../state";
 import { json } from "../shared/json";
-import {
-  findCodeActionById,
-  isCodeAction,
-} from "./codeActions";
+import { findCodeActionById, isCodeAction } from "./codeActions";
 import { applyWorkspaceEdit } from "./workspaceEdit";
 import { resolveWorkspacePath } from "./paths";
 import { getRange } from "./range";

@@ -76,6 +76,8 @@ When working in C# code, prefer `opencode-sharp` tools for Roslyn-backed work:
 - Use `csharp_workspace_symbols` when Roslyn workspace symbol search needs normalized file positions.
 - Use `csharp_rename_symbol` for semantic renames.
 - Use `csharp_code_action`, `csharp_apply_code_action`, and `csharp_apply_workspace_edit` for fixes and refactors.
+- Use `csharp_organize_imports`, `csharp_add_missing_usings`, and `csharp_fix_all_diagnostics` for safe diagnostic/code-action workflows.
+- Use `csharp_project_context` and `csharp_type_context` when refactoring needs project or containing-type context that generic LSP tools do not expose cleanly.
 
 Do not replace Roslyn results with `dotnet build` output or other CLI fallbacks.
 Do not add generic LSP wrappers for definition, references, hover, document symbols, workspace symbols, or implementation unless they provide C#-specific normalization, composition, or materially better agent output.
@@ -154,6 +156,26 @@ Re-fetches Roslyn code actions for a file range, resolves the selected action by
 `csharp_apply_workspace_edit`
 
 Applies an LSP `WorkspaceEdit` returned by Roslyn tools and reports changed files plus unsupported operations.
+
+`csharp_organize_imports`
+
+Applies Roslyn's safe organize-usings/imports code action for a C# file. The tool skips command-only actions and workspace edits with resource operations.
+
+`csharp_add_missing_usings`
+
+Collects unresolved-type diagnostics for a C# file and applies safe Roslyn add-using quick fixes over one or more passes.
+
+`csharp_fix_all_diagnostics`
+
+Collects diagnostics for a C# file or project, finds matching Roslyn code actions, and applies conservative safe fixes. The initial safe policy is text-edit-only add-missing-using or organize-imports actions.
+
+`csharp_project_context`
+
+Returns project-file context including SDK, target frameworks, nullable, implicit usings, package references, project references, analyzer references, analyzer config files, and existing assets summaries without running MSBuild.
+
+`csharp_type_context`
+
+Returns composed type context for a symbol position, including the containing type, source declaration, parsed base/interface clause, constructors, members, hover, and definition data.
 
 ## Current Boundaries
 

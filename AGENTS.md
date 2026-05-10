@@ -36,6 +36,11 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - `csharp_code_action`: lists Roslyn code actions for a file range and resolves workspace edits when available.
 - `csharp_apply_code_action`: re-fetches, resolves, and applies a Roslyn code action by ID.
 - `csharp_apply_workspace_edit`: applies an LSP workspace edit returned by Roslyn tools.
+- `csharp_organize_imports`: applies Roslyn's safe organize-usings/imports code action for a C# file.
+- `csharp_add_missing_usings`: applies safe Roslyn add-using quick fixes for unresolved type diagnostics.
+- `csharp_fix_all_diagnostics`: collects diagnostics for a file or project and applies conservative safe code-action fixes.
+- `csharp_project_context`: returns static C# project-file context that generic LSP tools do not expose cleanly.
+- `csharp_type_context`: composes Roslyn symbol data and source declarations into containing-type context for refactoring.
 
 ## Roslyn Sidecar
 

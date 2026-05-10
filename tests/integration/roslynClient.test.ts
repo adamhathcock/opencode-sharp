@@ -29,16 +29,19 @@ beforeAll(async () => {
   client = new RoslynLspClient(projectRoot);
   await client.preloadDocument(path.join(projectRoot, "Consumer.cs"));
   await waitForProjectLoad(client);
-});
+}, 20000);
 
 afterAll(async () => {
   await client?.shutdown();
+  if (projectRoot) {
+    await shutdownClientForRoot(projectRoot);
+  }
   if (tempRoot) {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test("document symbols include types and members", async () => {
+test.serial("document symbols include types and members", async () => {
   const { client, file } = getProject();
 
   const symbols = await client.documentSymbols(file("Calculator.cs"));
@@ -47,73 +50,177 @@ test("document symbols include types and members", async () => {
   expect(hasDocumentSymbol(symbols, "Add")).toBe(true);
 });
 
-test("definition resolves a method call to the interface member", async () => {
-  const { client, file, readPosition } = getProject();
-  const consumer = file("Consumer.cs");
-  const position = await readPosition(consumer, "Add(1", 1);
+test.serial(
+  "definition resolves a method call to the interface member",
+  async () => {
+    const { client, file, readPosition } = getProject();
+    const consumer = file("Consumer.cs");
+    const position = await readPosition(consumer, "Add(1", 1);
 
-  const response = await client.symbolLocations(
-    consumer,
-    position,
-    "definition",
-  );
-  const locations = normalizeLocations(response);
+    const response = await client.symbolLocations(
+      consumer,
+      position,
+      "definition",
+    );
+    const locations = normalizeLocations(response);
 
-  expect(
-    locations.some((location) => location.file === file("ICalculator.cs")),
-  ).toBe(true);
-});
+    expect(
+      locations.some((location) => location.file === file("ICalculator.cs")),
+    ).toBe(true);
+  },
+);
 
-test("workspace symbols find project types without resolve", async () => {
-  const { client, file } = getProject();
+test.serial(
+  "workspace symbols find project types without resolve",
+  async () => {
+    const { client, file } = getProject();
 
-  const symbols = normalizeWorkspaceSymbols(
-    await client.workspaceSymbols("Calculator"),
-  );
+    const symbols = normalizeWorkspaceSymbols(
+      await client.workspaceSymbols("Calculator"),
+    );
 
-  expect(
-    symbols.some(
-      (symbol) =>
-        symbol.name === "Calculator" && symbol.file === file("Calculator.cs"),
-    ),
-  ).toBe(true);
-  expect(
-    symbols.some(
-      (symbol) =>
-        symbol.name === "ICalculator" && symbol.file === file("ICalculator.cs"),
-    ),
-  ).toBe(true);
-});
+    expect(
+      symbols.some(
+        (symbol) =>
+          symbol.name === "Calculator" && symbol.file === file("Calculator.cs"),
+      ),
+    ).toBe(true);
+    expect(
+      symbols.some(
+        (symbol) =>
+          symbol.name === "ICalculator" &&
+          symbol.file === file("ICalculator.cs"),
+      ),
+    ).toBe(true);
+  },
+);
 
-test("workspace symbol tool does not expose unsupported resolve option", async () => {
-  const { root, file } = getProject();
-  const plugin = await CSharpLspPlugin({} as never);
-  const workspaceSymbols = plugin.tool?.csharp_workspace_symbols;
+test.serial(
+  "workspace symbol tool does not expose unsupported resolve option",
+  async () => {
+    await withIsolatedProject(async ({ root, file }) => {
+      const result = await executeTool(root, "csharp_workspace_symbols", {
+        query: "Calculator",
+        limit: 10,
+      });
 
-  expect(workspaceSymbols).toBeDefined();
-  if (!workspaceSymbols) {
-    throw new Error("Expected csharp_workspace_symbols tool.");
-  }
+      expect(result.ok).toBe(true);
+      expect(result.symbols.length).toBeGreaterThan(0);
+      expect(
+        result.symbols.some(
+          (symbol: { name?: string; file?: string }) =>
+            symbol.name === "Calculator" &&
+            symbol.file === file("Calculator.cs"),
+        ),
+      ).toBe(true);
+      expect(JSON.stringify(result)).not.toContain("resolveError");
+    });
+  },
+  20000,
+);
 
-  const toolResult = await workspaceSymbols.execute(
-    { query: "Calculator", limit: 10 },
-    { directory: root, worktree: root } as never,
-  );
-  await shutdownClientForRoot(root);
-  const result = JSON.parse(getToolOutput(toolResult));
+test.serial(
+  "organize imports tool applies safe Roslyn action",
+  async () => {
+    await withIsolatedProject(async ({ root, file }) => {
+      const imports = file("OrganizeToolImports.cs");
 
-  expect(result.ok).toBe(true);
-  expect(result.symbols.length).toBeGreaterThan(0);
-  expect(
-    result.symbols.some(
-      (symbol: { name?: string; file?: string }) =>
-        symbol.name === "Calculator" && symbol.file === file("Calculator.cs"),
-    ),
-  ).toBe(true);
-  expect(JSON.stringify(result)).not.toContain("resolveError");
-});
+      const result = await executeTool(root, "csharp_organize_imports", {
+        file: imports,
+      });
+      const updated = await fs.readFile(imports, "utf8");
 
-test("hover returns Roslyn type information", async () => {
+      expect(result.ok).toBe(true);
+      expect(updated.indexOf("using System;")).toBeLessThan(
+        updated.indexOf("using System.Text;"),
+      );
+    });
+  },
+  20000,
+);
+
+test.serial(
+  "add missing usings tool applies unresolved type quick fix",
+  async () => {
+    await withIsolatedProject(async ({ root, file }) => {
+      const missingUsing = file("MissingUsing.cs");
+
+      const result = await executeTool(root, "csharp_add_missing_usings", {
+        file: missingUsing,
+        maxPasses: 3,
+      });
+      const updated = await fs.readFile(missingUsing, "utf8");
+
+      expect(result.applied.length).toBeGreaterThan(0);
+      expect(updated).toContain("using System.Text;");
+    });
+  },
+  30000,
+);
+
+test.serial(
+  "fix all diagnostics applies conservative safe fixes",
+  async () => {
+    await withIsolatedProject(async ({ root, file }) => {
+      const missingUsing = file("MissingUsingForFixAll.cs");
+
+      const result = await executeTool(root, "csharp_fix_all_diagnostics", {
+        file: missingUsing,
+        maxPasses: 3,
+        diagnosticCodes: ["CS0246"],
+      });
+      const updated = await fs.readFile(missingUsing, "utf8");
+
+      expect(result.applied.length).toBeGreaterThan(0);
+      expect(updated).toContain("using System.Text;");
+    });
+  },
+  20000,
+);
+
+test.serial(
+  "project context returns static csproj settings",
+  async () => {
+    await withIsolatedProject(async ({ root, file }) => {
+      const result = await executeTool(root, "csharp_project_context", {
+        file: file("Calculator.cs"),
+      });
+
+      expect(result.projectFile).toBe(file("SampleProject.csproj"));
+      expect(result.targetFrameworks).toContain("net8.0");
+      expect(result.nullable).toBe("enable");
+      expect(result.implicitUsings).toBe("enable");
+    });
+  },
+  20000,
+);
+
+test.serial(
+  "type context returns containing type and members",
+  async () => {
+    await withIsolatedProject(async ({ root, file, readPosition }) => {
+      const calculator = file("Calculator.cs");
+      const position = await readPosition(calculator, "Calculator", 1);
+
+      const result = await executeTool(root, "csharp_type_context", {
+        file: calculator,
+        line: position.line + 1,
+        column: position.character + 1,
+      });
+
+      expect(result.containingType.name).toBe("Calculator");
+      expect(result.containingType.baseTypes).toContain("ICalculator");
+      expect(
+        result.containingType.members.some(
+          (member: { name?: string }) => member.name === "Add",
+        ),
+      ).toBe(true);
+    });
+  },
+  20000,
+);
+
+test.serial("hover returns Roslyn type information", async () => {
   const { client, file, readPosition } = getProject();
   const consumer = file("Consumer.cs");
   const position = await readPosition(consumer, "ICalculator", 1);
@@ -123,7 +230,7 @@ test("hover returns Roslyn type information", async () => {
   expect(JSON.stringify(hover)).toContain("ICalculator");
 });
 
-test("diagnostics report compiler errors from a real file", async () => {
+test.serial("diagnostics report compiler errors from a real file", async () => {
   const { client, file } = getProject();
 
   const result = await client.diagnostics(file("Broken.cs"));
@@ -137,43 +244,47 @@ test("diagnostics report compiler errors from a real file", async () => {
   ).toBe(true);
 });
 
-test("code actions include organize imports and can apply its edit", async () => {
-  const { client, file } = getProject();
-  const imports = file("Imports.cs");
-  const text = await fs.readFile(imports, "utf8");
+test.serial(
+  "code actions include organize imports and can apply its edit",
+  async () => {
+    const { client, file } = getProject();
+    const imports = file("Imports.cs");
+    const text = await fs.readFile(imports, "utf8");
 
-  const actions = flattenCodeActions(
-    (await client.codeActions(
-      imports,
-      fullRange(text),
-    )) as CodeActionOrCommand[],
-  );
-  const action = actions.find(
-    (candidate) => getTitle(candidate) === "Sort Usings",
-  );
-
-  expect(action).toBeDefined();
-  if (!action || !isRecord(action)) {
-    throw new Error("Expected Sort Usings code action.");
-  }
-
-  const resolved = await client.resolveCodeAction(
-    action as CodeActionOrCommand,
-  );
-  expect(resolved.edit).toBeDefined();
-  if (!resolved.edit) {
-    throw new Error(
-      "Expected organize imports to resolve to a workspace edit.",
+    const actions = flattenCodeActions(
+      (await client.codeActions(
+        imports,
+        fullRange(text),
+      )) as CodeActionOrCommand[],
     );
-  }
+    const action = actions.find(
+      (candidate) => getTitle(candidate) === "Sort Usings",
+    );
 
-  await applyWorkspaceEdit(resolved.edit);
-  const updated = await fs.readFile(imports, "utf8");
+    expect(action).toBeDefined();
+    if (!action || !isRecord(action)) {
+      throw new Error("Expected Sort Usings code action.");
+    }
 
-  expect(updated.indexOf("using System;")).toBeLessThan(
-    updated.indexOf("using System.Text;"),
-  );
-});
+    const resolved = await client.resolveCodeAction(
+      action as CodeActionOrCommand,
+    );
+    expect(resolved.edit).toBeDefined();
+    if (!resolved.edit) {
+      throw new Error(
+        "Expected organize imports to resolve to a workspace edit.",
+      );
+    }
+
+    await applyWorkspaceEdit(resolved.edit);
+    const updated = await fs.readFile(imports, "utf8");
+
+    expect(updated.indexOf("using System;")).toBeLessThan(
+      updated.indexOf("using System.Text;"),
+    );
+  },
+  20000,
+);
 
 function getProject() {
   if (!client || !projectRoot) {
@@ -287,4 +398,53 @@ function getToolOutput(result: unknown) {
   }
 
   throw new Error(`Unexpected tool result: ${JSON.stringify(result)}`);
+}
+
+type ProjectHandle = {
+  root: string;
+  file: (relativePath: string) => string;
+  readPosition: (
+    file: string,
+    needle: string,
+    characterOffset?: number,
+  ) => Promise<Position>;
+};
+
+async function withIsolatedProject(
+  callback: (project: ProjectHandle) => Promise<void>,
+) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-sharp-tool-"));
+  const projectRoot = path.join(root, "SampleProject");
+  await fs.cp(fixtureRoot, projectRoot, { recursive: true });
+
+  try {
+    await callback({
+      root: projectRoot,
+      file: (relativePath: string) => path.join(projectRoot, relativePath),
+      readPosition: async (file: string, needle: string, characterOffset = 0) =>
+        positionOf(await fs.readFile(file, "utf8"), needle, characterOffset),
+    });
+  } finally {
+    await shutdownClientForRoot(projectRoot);
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
+
+async function executeTool(
+  root: string,
+  name: string,
+  args: Record<string, unknown>,
+) {
+  const plugin = await CSharpLspPlugin({} as never);
+  const tool = plugin.tool?.[name];
+  expect(tool).toBeDefined();
+  if (!tool) {
+    throw new Error(`Expected ${name} tool.`);
+  }
+
+  return JSON.parse(
+    getToolOutput(
+      await tool.execute(args, { directory: root, worktree: root } as never),
+    ),
+  );
 }

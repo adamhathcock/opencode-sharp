@@ -2,10 +2,7 @@ import { tool } from "@opencode-ai/plugin";
 import { getPosition } from "./position";
 import { resolveWorkspacePath } from "./paths";
 import { getClient } from "../state";
-import {
-  normalizeLocations,
-  positionToToolPosition,
-} from "./locations";
+import { normalizeLocations, positionToToolPosition } from "./locations";
 import { json } from "../shared/json";
 import { normalizeDocumentSymbols } from "./symbolNormalization";
 
