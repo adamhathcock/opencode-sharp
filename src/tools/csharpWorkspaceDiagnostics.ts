@@ -11,6 +11,11 @@ export const csharpWorkspaceDiagnosticsTool: any = tool({
     return json({
       ok: true,
       diagnostics: await client.workspaceDiagnostics(),
+      coverage: {
+        source: "roslyn-workspace-diagnostics-only",
+        doesNotOpenDocuments: true,
+        mayMissDocumentScopedAnalyzerDiagnostics: true,
+      },
     });
   },
 });
