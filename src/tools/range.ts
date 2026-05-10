@@ -1,5 +1,5 @@
-import type { Range } from "../csharp/types";
-import { oneBasedToZeroBased } from "./position";
+import type { Range } from "../csharp/types.js";
+import { oneBasedToZeroBased } from "./position.js";
 
 type RangeArgs = {
   startLine?: number;

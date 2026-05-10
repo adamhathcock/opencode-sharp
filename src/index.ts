@@ -1,6 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { csharpTools } from "./tools/registry";
-import { shutdownClientForRoot } from "./state";
+import { csharpTools } from "./tools/registry.js";
+import { shutdownClientForRoot } from "./state.js";
 
 export const CSharpLspPlugin: Plugin = async () => ({
   async event({ event }) {

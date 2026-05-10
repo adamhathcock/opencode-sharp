@@ -1,10 +1,10 @@
 import { tool } from "@opencode-ai/plugin";
-import { getPosition } from "./position";
-import { resolveWorkspacePath } from "./paths";
-import { getClient } from "../state";
-import { normalizeLocations, positionToToolPosition } from "./locations";
-import { json } from "../shared/json";
-import { normalizeDocumentSymbols } from "./symbolNormalization";
+import { getPosition } from "./position.js";
+import { resolveWorkspacePath } from "./paths.js";
+import { getClient } from "../state.js";
+import { normalizeLocations, positionToToolPosition } from "./locations.js";
+import { json } from "../shared/json.js";
+import { normalizeDocumentSymbols } from "./symbolNormalization.js";
 
 export const csharpSymbolContextTool: any = tool({
   description:

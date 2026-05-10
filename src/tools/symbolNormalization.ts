@@ -1,5 +1,5 @@
-import { normalizeLocations, rangeStartToToolPosition } from "./locations";
-import { isRecord } from "../shared/json";
+import { normalizeLocations, rangeStartToToolPosition } from "./locations.js";
+import { isRecord } from "../shared/json.js";
 
 export function normalizeDocumentSymbols(symbols: unknown[]): unknown[] {
   return symbols.map((symbol) => {

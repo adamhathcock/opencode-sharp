@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { OpenDocument } from "../csharp/types";
+import type { OpenDocument } from "../csharp/types.js";
 
 type Notify = (method: string, params: unknown) => void;
 

@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Position, TextEdit, WorkspaceEdit } from "../csharp/types";
+import type { Position, TextEdit, WorkspaceEdit } from "../csharp/types.js";
 
 export async function applyWorkspaceEdit(edit: WorkspaceEdit) {
   const editsByFile = new Map<string, TextEdit[]>();

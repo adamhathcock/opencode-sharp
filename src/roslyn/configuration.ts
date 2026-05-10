@@ -1,4 +1,4 @@
-import { isRecord } from "../shared/json";
+import { isRecord } from "../shared/json.js";
 
 export function getConfigurationValue(item: unknown) {
   const section =

@@ -1,15 +1,15 @@
 import { tool } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
-import type { CodeActionOrCommand } from "../csharp/types";
-import { getClient } from "../state";
-import { json } from "../shared/json";
+import type { CodeActionOrCommand } from "../csharp/types.js";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
 import {
   applyFirstCandidate,
   isOrganizeImportsAction,
   resolveEditableCandidates,
-} from "./codeActionApply";
-import { resolveWorkspacePath } from "./paths";
-import { getRange } from "./range";
+} from "./codeActionApply.js";
+import { resolveWorkspacePath } from "./paths.js";
+import { getRange } from "./range.js";
 
 export const csharpOrganizeImportsTool: any = tool({
   description:

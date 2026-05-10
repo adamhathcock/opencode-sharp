@@ -2,10 +2,10 @@ import type {
   CodeAction,
   CodeActionOrCommand,
   WorkspaceEdit,
-} from "../csharp/types";
-import type { RoslynLspClient } from "../roslyn/client";
-import { flattenCodeActions, isCodeAction } from "./codeActions";
-import { applyWorkspaceEdit } from "./workspaceEdit";
+} from "../csharp/types.js";
+import type { RoslynLspClient } from "../roslyn/client.js";
+import { flattenCodeActions, isCodeAction } from "./codeActions.js";
+import { applyWorkspaceEdit } from "./workspaceEdit.js";
 
 export type ActionCandidate = {
   action: CodeAction;

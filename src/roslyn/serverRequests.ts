@@ -1,10 +1,10 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { WorkspaceEdit } from "../csharp/types";
-import type { JsonRpcMessage } from "../lsp/types";
-import { isRecord } from "../shared/json";
-import { applyWorkspaceEdit } from "../tools/workspaceEdit";
-import { getConfigurationValue } from "./configuration";
+import type { WorkspaceEdit } from "../csharp/types.js";
+import type { JsonRpcMessage } from "../lsp/types.js";
+import { isRecord } from "../shared/json.js";
+import { applyWorkspaceEdit } from "../tools/workspaceEdit.js";
+import { getConfigurationValue } from "./configuration.js";
 
 export async function handleServerRequest(
   root: string,

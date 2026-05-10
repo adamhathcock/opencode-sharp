@@ -1,4 +1,4 @@
-import type { JsonRpcId, JsonRpcMessage, PendingRequest } from "../lsp/types";
+import type { JsonRpcId, JsonRpcMessage, PendingRequest } from "../lsp/types.js";
 
 export class PendingRequests {
   private nextId = 1;

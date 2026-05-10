@@ -1,6 +1,7 @@
 {
   "name": "opencode-sharp",
   "version": "0.0.1",
+  "description": "opencode plugin that adds focused Roslyn-backed C# tools.",
   "module": "dist/index.js",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,29 +9,42 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    },
-    "./server": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
     }
   },
-  "private": true,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamhathcock/opencode-sharp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adamhathcock/opencode-sharp/issues"
+  },
+  "homepage": "https://github.com/adamhathcock/opencode-sharp#readme",
+  "keywords": [
+    "opencode",
+    "plugin",
+    "csharp",
+    "roslyn",
+    "lsp"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "dev": "tsc --watch",
+    "prepack": "bun run build",
     "test": "bun test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@opencode-ai/plugin": "latest",
-    "@opencode-ai/sdk": "latest",
-    "prettier": "^3.8.3",
-    "zod": "latest"
+    "@opencode-ai/plugin": "latest"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "latest",
+    "prettier": "^3.8.3",
     "typescript": "latest"
   }
 }

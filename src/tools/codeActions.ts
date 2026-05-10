@@ -1,4 +1,4 @@
-import type { CodeAction, CodeActionOrCommand } from "../csharp/types";
+import type { CodeAction, CodeActionOrCommand } from "../csharp/types.js";
 
 export function summarizeCodeAction(id: string, action: CodeActionOrCommand) {
   if (isCodeAction(action)) {

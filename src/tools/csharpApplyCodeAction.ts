@@ -1,12 +1,12 @@
 import { tool } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
-import type { CodeActionOrCommand } from "../csharp/types";
-import { getClient } from "../state";
-import { json } from "../shared/json";
-import { findCodeActionById, isCodeAction } from "./codeActions";
-import { applyWorkspaceEdit } from "./workspaceEdit";
-import { resolveWorkspacePath } from "./paths";
-import { getRange } from "./range";
+import type { CodeActionOrCommand } from "../csharp/types.js";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
+import { findCodeActionById, isCodeAction } from "./codeActions.js";
+import { applyWorkspaceEdit } from "./workspaceEdit.js";
+import { resolveWorkspacePath } from "./paths.js";
+import { getRange } from "./range.js";
 
 export const csharpApplyCodeActionTool: any = tool({
   description:

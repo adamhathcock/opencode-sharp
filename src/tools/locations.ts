@@ -5,8 +5,8 @@ import type {
   Position,
   Range,
   WorkspaceSymbol,
-} from "../csharp/types";
-import { isRecord } from "../shared/json";
+} from "../csharp/types.js";
+import { isRecord } from "../shared/json.js";
 
 export type LocationKind = "definition" | "typeDefinition" | "implementation";
 

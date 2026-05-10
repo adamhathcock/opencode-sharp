@@ -1,7 +1,7 @@
-import type { Diagnostic } from "../csharp/types";
+import type { Diagnostic } from "../csharp/types.js";
 import { fileURLToPath } from "node:url";
-import { isRecord } from "../shared/json";
-import type { RoslynLspClient } from "./client";
+import { isRecord } from "../shared/json.js";
+import type { RoslynLspClient } from "./client.js";
 
 export const diagnosticCategories = [
   "syntax",

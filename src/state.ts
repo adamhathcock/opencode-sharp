@@ -1,6 +1,6 @@
 import type { ToolContext } from "@opencode-ai/plugin";
 import path from "node:path";
-import { RoslynLspClient } from "./roslyn/client";
+import { RoslynLspClient } from "./roslyn/client.js";
 
 const clients = new Map<string, RoslynLspClient>();
 

@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
-import { getClient } from "../state";
-import { json } from "../shared/json";
-import { normalizeWorkspaceSymbols } from "./locations";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
+import { normalizeWorkspaceSymbols } from "./locations.js";
 
 export const csharpWorkspaceSymbolsTool: any = tool({
   description:

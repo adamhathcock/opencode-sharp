@@ -1,8 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { JsonRpcMessage } from "../lsp/types";
-import { formatMessage, MessageBuffer } from "./framing";
-import { MessageLog } from "./messageLog";
-import { PendingRequests } from "./pendingRequests";
+import type { JsonRpcMessage } from "../lsp/types.js";
+import { formatMessage, MessageBuffer } from "./framing.js";
+import { MessageLog } from "./messageLog.js";
+import { PendingRequests } from "./pendingRequests.js";
 
 type RequestHandler = (message: JsonRpcMessage) => unknown | Promise<unknown>;
 

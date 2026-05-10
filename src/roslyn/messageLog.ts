@@ -1,4 +1,4 @@
-import type { JsonRpcMessage } from "../lsp/types";
+import type { JsonRpcMessage } from "../lsp/types.js";
 
 export class MessageLog {
   private messages: unknown[] = [];

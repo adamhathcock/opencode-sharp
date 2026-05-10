@@ -1,4 +1,4 @@
-import type { Diagnostic, Range } from "../csharp/types";
+import type { Diagnostic, Range } from "../csharp/types.js";
 
 type Request = (method: string, params: unknown) => Promise<unknown>;
 type Wait = (operations: string[]) => Promise<void>;

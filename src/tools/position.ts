@@ -1,4 +1,4 @@
-import type { Position } from "../csharp/types";
+import type { Position } from "../csharp/types.js";
 
 export type PositionArgs = {
   line: number;

@@ -1,4 +1,4 @@
-import type { JsonRpcMessage } from "../lsp/types";
+import type { JsonRpcMessage } from "../lsp/types.js";
 
 export function formatMessage(message: unknown) {
   const body = JSON.stringify(message);

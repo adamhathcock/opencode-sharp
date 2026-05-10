@@ -5,9 +5,9 @@ import type {
   CodeAction,
   CodeActionOrCommand,
   Diagnostic,
-} from "../csharp/types";
-import { getClient } from "../state";
-import { json } from "../shared/json";
+} from "../csharp/types.js";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
 import {
   applyFirstCandidate,
   getDiagnosticCode,
@@ -16,8 +16,8 @@ import {
   resolveEditableCandidates,
   type AppliedCodeAction,
   type SkippedCodeAction,
-} from "./codeActionApply";
-import { resolveWorkspacePath } from "./paths";
+} from "./codeActionApply.js";
+import { resolveWorkspacePath } from "./paths.js";
 
 export const csharpFixAllDiagnosticsTool: any = tool({
   description:

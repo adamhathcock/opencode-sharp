@@ -4,14 +4,14 @@ import type {
   Position,
   Range,
   WorkspaceSymbol,
-} from "../csharp/types";
-import { getStableCodeActions } from "./codeActionPolling";
-import { getRoslynCommand } from "./command";
-import { getDiagnostics, getWorkspaceDiagnostics } from "./diagnostics";
-import { DocumentStore } from "./documents";
-import { getInitializeParams } from "./initialize";
-import { handleServerRequest } from "./serverRequests";
-import { RpcConnection } from "./rpcConnection";
+} from "../csharp/types.js";
+import { getStableCodeActions } from "./codeActionPolling.js";
+import { getRoslynCommand } from "./command.js";
+import { getDiagnostics, getWorkspaceDiagnostics } from "./diagnostics.js";
+import { DocumentStore } from "./documents.js";
+import { getInitializeParams } from "./initialize.js";
+import { handleServerRequest } from "./serverRequests.js";
+import { RpcConnection } from "./rpcConnection.js";
 
 export type SymbolLocationKind =
   | "definition"

@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
-import { getClient } from "../state";
-import { json } from "../shared/json";
-import { resolveWorkspacePath } from "./paths";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
+import { resolveWorkspacePath } from "./paths.js";
 
 export const csharpDiagnosticsTool: any = tool({
   description:

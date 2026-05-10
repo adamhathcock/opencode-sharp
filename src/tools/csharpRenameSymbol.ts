@@ -1,11 +1,11 @@
 import { tool } from "@opencode-ai/plugin";
-import { getClient } from "../state";
-import { json } from "../shared/json";
-import type { WorkspaceEdit } from "../csharp/types";
-import { resolveWorkspacePath } from "./paths";
-import { getPosition } from "./position";
-import { applyWorkspaceEdit } from "./workspaceEdit";
-import { positionToToolPosition } from "./locations";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
+import type { WorkspaceEdit } from "../csharp/types.js";
+import { resolveWorkspacePath } from "./paths.js";
+import { getPosition } from "./position.js";
+import { applyWorkspaceEdit } from "./workspaceEdit.js";
+import { positionToToolPosition } from "./locations.js";
 
 export const csharpRenameSymbolTool: any = tool({
   description:

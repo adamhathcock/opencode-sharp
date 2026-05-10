@@ -1,16 +1,16 @@
-import { csharpApplyCodeActionTool } from "./csharpApplyCodeAction";
-import { csharpApplyWorkspaceEditTool } from "./csharpApplyWorkspaceEdit";
-import { csharpAddMissingUsingsTool } from "./csharpAddMissingUsings";
-import { csharpCodeActionTool } from "./csharpCodeAction";
-import { csharpDiagnosticsTool } from "./csharpDiagnostics";
-import { csharpFixAllDiagnosticsTool } from "./csharpFixAllDiagnostics";
-import { csharpOrganizeImportsTool } from "./csharpOrganizeImports";
-import { csharpProjectContextTool } from "./csharpProjectContext";
-import { csharpRenameSymbolTool } from "./csharpRenameSymbol";
-import { csharpSymbolContextTool } from "./csharpSymbolContext";
-import { csharpTypeContextTool } from "./csharpTypeContext";
-import { csharpWorkspaceDiagnosticsTool } from "./csharpWorkspaceDiagnostics";
-import { csharpWorkspaceSymbolsTool } from "./csharpWorkspaceSymbols";
+import { csharpApplyCodeActionTool } from "./csharpApplyCodeAction.js";
+import { csharpApplyWorkspaceEditTool } from "./csharpApplyWorkspaceEdit.js";
+import { csharpAddMissingUsingsTool } from "./csharpAddMissingUsings.js";
+import { csharpCodeActionTool } from "./csharpCodeAction.js";
+import { csharpDiagnosticsTool } from "./csharpDiagnostics.js";
+import { csharpFixAllDiagnosticsTool } from "./csharpFixAllDiagnostics.js";
+import { csharpOrganizeImportsTool } from "./csharpOrganizeImports.js";
+import { csharpProjectContextTool } from "./csharpProjectContext.js";
+import { csharpRenameSymbolTool } from "./csharpRenameSymbol.js";
+import { csharpSymbolContextTool } from "./csharpSymbolContext.js";
+import { csharpTypeContextTool } from "./csharpTypeContext.js";
+import { csharpWorkspaceDiagnosticsTool } from "./csharpWorkspaceDiagnostics.js";
+import { csharpWorkspaceSymbolsTool } from "./csharpWorkspaceSymbols.js";
 
 export const csharpTools: Record<string, any> = {
   csharp_symbol_context: csharpSymbolContextTool,

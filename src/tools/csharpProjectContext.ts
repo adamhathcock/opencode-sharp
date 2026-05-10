@@ -1,8 +1,8 @@
 import { tool } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { json } from "../shared/json";
-import { resolveWorkspacePath } from "./paths";
+import { json } from "../shared/json.js";
+import { resolveWorkspacePath } from "./paths.js";
 
 export const csharpProjectContextTool: any = tool({
   description:

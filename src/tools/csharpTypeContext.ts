@@ -1,15 +1,15 @@
 import { tool } from "@opencode-ai/plugin";
 import { promises as fs } from "node:fs";
-import type { DocumentSymbol, Position, Range } from "../csharp/types";
-import { getClient } from "../state";
-import { json } from "../shared/json";
+import type { DocumentSymbol, Position, Range } from "../csharp/types.js";
+import { getClient } from "../state.js";
+import { json } from "../shared/json.js";
 import {
   normalizeLocations,
   positionToToolPosition,
   rangeStartToToolPosition,
-} from "./locations";
-import { resolveWorkspacePath } from "./paths";
-import { getPosition } from "./position";
+} from "./locations.js";
+import { resolveWorkspacePath } from "./paths.js";
+import { getPosition } from "./position.js";
 
 const typeKinds = new Set([5, 10, 11, 22, 23]);
 const memberKindNames: Record<number, string> = {

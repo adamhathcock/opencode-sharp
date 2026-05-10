@@ -1,7 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
-import type { WorkspaceEdit } from "../csharp/types";
-import { json } from "../shared/json";
-import { applyWorkspaceEdit } from "./workspaceEdit";
+import type { WorkspaceEdit } from "../csharp/types.js";
+import { json } from "../shared/json.js";
+import { applyWorkspaceEdit } from "./workspaceEdit.js";
 
 export const csharpApplyWorkspaceEditTool: any = tool({
   description:
