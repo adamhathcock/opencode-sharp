@@ -75,3 +75,56 @@ export function isCodeAction(
     !("edit" in action)
   );
 }
+
+export async function summarizeResolvedActions(
+  client: { resolveCodeAction(action: CodeAction): Promise<CodeAction> },
+  actions: CodeActionOrCommand[],
+) {
+  return await Promise.all(
+    flattenCodeActions(actions).map((action, index) =>
+      summarizeAction(client, String(index), action),
+    ),
+  );
+}
+
+async function summarizeAction(
+  client: { resolveCodeAction(action: CodeAction): Promise<CodeAction> },
+  id: string,
+  action: CodeActionOrCommand,
+) {
+  if (!isCodeAction(action)) {
+    return {
+      id,
+      title: action.title,
+      command: action.command,
+      arguments: action.arguments,
+    };
+  }
+
+  const resolved = await resolveActionIfPossible(client, action);
+  return {
+    id,
+    title: resolved.title,
+    kind: resolved.kind,
+    diagnostics: resolved.diagnostics,
+    edit: resolved.edit,
+    command: resolved.command,
+    data: resolved.data,
+    resolveError:
+      "resolveError" in resolved ? resolved.resolveError : undefined,
+  };
+}
+
+async function resolveActionIfPossible(
+  client: { resolveCodeAction(action: CodeAction): Promise<CodeAction> },
+  action: CodeAction,
+) {
+  try {
+    return await client.resolveCodeAction(action);
+  } catch (error) {
+    return {
+      ...action,
+      resolveError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
