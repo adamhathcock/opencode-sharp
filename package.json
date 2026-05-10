@@ -1,9 +1,9 @@
 {
   "name": "opencode-sharp",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "opencode plugin that adds focused Roslyn-backed C# tools.",
-  "module": "dist/index.js",
   "type": "module",
+  "module": "dist/index.js",
   "main": "./dist/index.js",
   "exports": {
     ".": {
