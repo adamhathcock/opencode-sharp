@@ -62,6 +62,7 @@ Default to Bun for JavaScript and TypeScript work in this repository.
 - Treat this as an augmentation layer for opencode's existing C# LSP support, not a replacement for it.
 - Do not add `dotnet build`, `dotnet test`, or other CLI fallbacks to Roslyn-backed tools unless explicitly requested.
 - If a Roslyn LSP method is flaky or unavailable, surface the error or raw response instead of hiding it behind a different data source.
+- Keep `README.md` up to date whenever tools, configuration, or Roslyn behavior changes.
 
 ## Verification
 

@@ -37,14 +37,26 @@ Build the plugin:
 bun run build
 ```
 
+Run the test suite:
+
+```bash
+bun test
+```
+
+Format the workspace:
+
+```bash
+bun run format
+```
+
 ## opencode Configuration
 
-Use the server plugin from opencode config:
+Use the plugin from opencode config:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-sharp/server"]
+  "plugin": ["opencode-sharp"]
 }
 ```
 
@@ -52,6 +64,12 @@ Run TypeScript in watch mode:
 
 ```bash
 bun run dev
+```
+
+Check formatting without changing files:
+
+```bash
+bun run format:check
 ```
 
 ## Configuration
@@ -68,7 +86,7 @@ Command resolution order:
 2. `~/.dotnet/tools/roslyn-language-server`
 3. `roslyn-language-server` from `PATH`
 
-The Roslyn sidecar starts lazily when a Roslyn-backed tool first needs it. The plugin shuts down the sidecar for a worktree when opencode emits `server.instance.disposed` for that directory.
+The Roslyn sidecar starts lazily when a Roslyn-backed tool first needs it. The plugin keeps one Roslyn client per worktree and shuts it down when opencode emits `server.instance.disposed` for that directory.
 
 Override the command:
 
@@ -86,7 +104,7 @@ OPENCODE_SHARP_ROSLYN_ARGS="--stdio --autoLoadProjects --logLevel Information"
 
 `csharp_diagnostics`
 
-Pulls diagnostics for a C# file from Roslyn. The tool queries Roslyn diagnostic endpoints and returns Roslyn's response without replacing it with `dotnet build` output.
+Pulls diagnostics for a C# file from Roslyn. The tool queries public and VS-internal diagnostic endpoints and returns Roslyn's response without replacing it with `dotnet build` output.
 
 `csharp_workspace_diagnostics`
 
@@ -102,7 +120,7 @@ Returns normalized Roslyn symbol locations for a file position. Supported `kind`
 
 `csharp_workspace_symbols`
 
-Searches C# symbols across the loaded Roslyn workspace using `workspace/symbol` and returns normalized file/position data. The tool does not call `workspaceSymbol/resolve` because the current Roslyn sidecar does not support it.
+Searches C# symbols across the loaded Roslyn workspace using `workspace/symbol` and returns normalized file/position data.
 
 `csharp_find_references`
 
@@ -114,7 +132,7 @@ Renames a C# symbol through Roslyn semantic rename. By default it returns the Ro
 
 `csharp_code_action`
 
-Lists Roslyn quick fixes and refactorings for a C# file range. Code actions are resolved when possible and include stable IDs for use with `csharp_apply_code_action`.
+Lists Roslyn quick fixes and refactorings for a C# file range. Code actions are flattened, resolved when possible, and include stable IDs for use with `csharp_apply_code_action`.
 
 `csharp_apply_code_action`
 
@@ -124,16 +142,16 @@ Re-fetches Roslyn code actions for a file range, resolves the selected action by
 
 Applies an LSP `WorkspaceEdit` returned by Roslyn tools and reports changed files plus unsupported operations.
 
-## Known Unsupported Roslyn Methods
+## Current Boundaries
 
-The current Roslyn sidecar does not support these LSP methods, so this plugin does not expose tools that depend on them:
+The current Roslyn sidecar does not expose tools for these LSP methods:
 
 - `workspaceSymbol/resolve`
 - `textDocument/prepareTypeHierarchy`
 - `typeHierarchy/supertypes`
 - `typeHierarchy/subtypes`
 
-## What Should Be Implemented
+## Potential Future Tools
 
 `csharp_format_document`
 
@@ -146,3 +164,15 @@ Format a selected C# range using `textDocument/rangeFormatting` and optionally a
 `csharp_folding_ranges`
 
 Return folding ranges using `textDocument/foldingRange` if file-outline workflows need collapsible regions beyond document symbols.
+
+## Verification
+
+Run the narrowest relevant check after changes:
+
+```bash
+bun run build
+```
+
+```bash
+bun test
+```
