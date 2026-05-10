@@ -60,6 +60,24 @@ Use the plugin from opencode config:
 }
 ```
 
+## AGENTS.md Guidance
+
+If you want opencode agents to use these Roslyn-backed C# tools automatically, add a short instruction block to either your global opencode agent config or the `AGENTS.md` file in a C# repository.
+
+Example `AGENTS.md` entry:
+
+```md
+When working in C# code, prefer `opencode-sharp` tools for Roslyn-backed work:
+
+- Use `csharp_symbol_context` to inspect unknown symbols first.
+- Use `csharp_diagnostics` and `csharp_workspace_diagnostics` for Roslyn diagnostics.
+- Use `csharp_find_references`, `csharp_symbol_locations`, and `csharp_workspace_symbols` for symbol navigation.
+- Use `csharp_rename_symbol` for semantic renames.
+- Use `csharp_code_action`, `csharp_apply_code_action`, and `csharp_apply_workspace_edit` for fixes and refactors.
+
+Do not replace Roslyn results with `dotnet build` output or other CLI fallbacks.
+```
+
 Run TypeScript in watch mode:
 
 ```bash
