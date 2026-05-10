@@ -2,6 +2,8 @@
 
 This repository contains `opencode-sharp`, an opencode plugin that augments opencode's built-in C# LSP support with focused Roslyn-powered tools.
 
+This plugin should complement the C# LSP provided by opencode with extra tools, not replace opencode's built-in LSP behavior.
+
 The plugin currently starts its own `roslyn-language-server` sidecar over stdio. It does not use `dotnet build` or CLI fallbacks for semantic results. If Roslyn returns empty diagnostics or no code action, preserve that behavior and make the Roslyn response visible rather than synthesizing results from another source.
 
 ## Project Structure
@@ -22,14 +24,17 @@ The plugin currently starts its own `roslyn-language-server` sidecar over stdio.
 - The plugin uses `@opencode-ai/plugin` and `tool.schema` for schema-validated tool inputs.
 - Tool implementations should return concise JSON strings through the shared `json` helper.
 - Tool names should be descriptive and stable once introduced.
+- Do not duplicate generic LSP tools already covered by opencode, including definition, references, hover, document symbols, workspace symbols, or implementation, unless the wrapper adds C#-specific normalization, composition, or materially better agent output.
 
 ## Current Tools
 
 - `csharp_diagnostics`: pulls Roslyn diagnostics for a C# file through public and VS-internal diagnostic LSP requests.
+- `csharp_workspace_diagnostics`: pulls solution-wide diagnostics from Roslyn workspace diagnostic endpoints.
 - `csharp_symbol_context`: returns hover, definition, and document symbols for a C# file position.
-- `csharp_find_references`: finds references for a C# symbol position.
+- `csharp_workspace_symbols`: searches C# workspace symbols and returns normalized file positions.
 - `csharp_rename_symbol`: performs Roslyn semantic rename and can optionally apply the returned workspace edit.
 - `csharp_code_action`: lists Roslyn code actions for a file range and resolves workspace edits when available.
+- `csharp_apply_code_action`: re-fetches, resolves, and applies a Roslyn code action by ID.
 - `csharp_apply_workspace_edit`: applies an LSP workspace edit returned by Roslyn tools.
 
 ## Roslyn Sidecar
@@ -60,6 +65,7 @@ Default to Bun for JavaScript and TypeScript work in this repository.
 - Validate all tool inputs through the plugin schema.
 - Return JSON or another predictable structured format from tools when possible.
 - Treat this as an augmentation layer for opencode's existing C# LSP support, not a replacement for it.
+- Prefer composed or C#-specific tools over one-to-one wrappers around generic LSP methods that opencode already exposes.
 - Do not add `dotnet build`, `dotnet test`, or other CLI fallbacks to Roslyn-backed tools unless explicitly requested.
 - If a Roslyn LSP method is flaky or unavailable, surface the error or raw response instead of hiding it behind a different data source.
 - Keep `README.md` up to date whenever tools, configuration, or Roslyn behavior changes.

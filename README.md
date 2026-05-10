@@ -2,6 +2,8 @@
 
 `opencode-sharp` is an opencode plugin that adds focused C# tools backed by `roslyn-language-server`.
 
+This plugin should complement the C# LSP support provided by opencode with extra tools, not replace opencode's built-in LSP behavior.
+
 opencode already has built-in C# LSP support. This plugin is intended to expose Roslyn capabilities that are not currently convenient as first-class opencode tools, such as Roslyn diagnostic pulls, workspace symbol search, implementation lookup, and code actions.
 
 ## Status
@@ -71,11 +73,12 @@ When working in C# code, prefer `opencode-sharp` tools for Roslyn-backed work:
 
 - Use `csharp_symbol_context` to inspect unknown symbols first.
 - Use `csharp_diagnostics` and `csharp_workspace_diagnostics` for Roslyn diagnostics.
-- Use `csharp_find_references`, `csharp_symbol_locations`, and `csharp_workspace_symbols` for symbol navigation.
+- Use `csharp_workspace_symbols` when Roslyn workspace symbol search needs normalized file positions.
 - Use `csharp_rename_symbol` for semantic renames.
 - Use `csharp_code_action`, `csharp_apply_code_action`, and `csharp_apply_workspace_edit` for fixes and refactors.
 
 Do not replace Roslyn results with `dotnet build` output or other CLI fallbacks.
+Do not add generic LSP wrappers for definition, references, hover, document symbols, workspace symbols, or implementation unless they provide C#-specific normalization, composition, or materially better agent output.
 ```
 
 Run TypeScript in watch mode:
@@ -132,17 +135,9 @@ Pulls solution-wide diagnostics from Roslyn workspace diagnostic endpoints and g
 
 Returns hover, definition, and document symbols for a C# file position. This is the best first proof tool when inspecting an unknown C# symbol.
 
-`csharp_symbol_locations`
-
-Returns normalized Roslyn symbol locations for a file position. Supported `kind` values are `definition`, `typeDefinition`, and `implementation`; `definition` is the default.
-
 `csharp_workspace_symbols`
 
 Searches C# symbols across the loaded Roslyn workspace using `workspace/symbol` and returns normalized file/position data.
-
-`csharp_find_references`
-
-Finds references for a symbol position using `textDocument/references`. The `includeDeclaration` argument defaults to `true`.
 
 `csharp_rename_symbol`
 

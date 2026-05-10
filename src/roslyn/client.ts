@@ -86,20 +86,6 @@ export class RoslynLspClient {
     return Array.isArray(response) ? (response as WorkspaceSymbol[]) : [];
   }
 
-  async references(
-    file: string,
-    position: Position,
-    includeDeclaration: boolean,
-  ) {
-    const document = await this.syncDocument(file);
-    const response = await this.request("textDocument/references", {
-      textDocument: { uri: document.uri },
-      position,
-      context: { includeDeclaration },
-    });
-    return Array.isArray(response) ? response : [];
-  }
-
   async hover(file: string, position: Position) {
     const document = await this.syncDocument(file);
     return await this.request("textDocument/hover", {

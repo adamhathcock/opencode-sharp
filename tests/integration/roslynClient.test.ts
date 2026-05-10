@@ -64,20 +64,6 @@ test("definition resolves a method call to the interface member", async () => {
   ).toBe(true);
 });
 
-test("references include interface, implementation, and call sites", async () => {
-  const { client, file, readPosition } = getProject();
-  const calculator = file("Calculator.cs");
-  const position = await readPosition(calculator, "Add(int", 1);
-
-  const response = await client.references(calculator, position, true);
-  const locations = normalizeLocations(response);
-  const files = new Set(locations.map((location) => location.file));
-
-  expect(files.has(file("ICalculator.cs"))).toBe(true);
-  expect(files.has(file("Calculator.cs"))).toBe(true);
-  expect(files.has(file("Consumer.cs"))).toBe(true);
-});
-
 test("workspace symbols find project types without resolve", async () => {
   const { client, file } = getProject();
 
